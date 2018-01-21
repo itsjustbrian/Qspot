@@ -1,0 +1,14 @@
+{
+  "name": "queuespot",
+  "flat": true,
+  "version": "1.0.0",
+  "main": "src/index.html",
+  "repository": "https://github.com/fafcrumb/queuespot.git",
+  "author": "fafcrumb <bri.ferch@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@polymer/lit-element": "^0.1.0",
+    "@polymer/polymer": "^3.0.0-pre.4",
+    "@webcomponents/webcomponentsjs": "^1.0.22"
+  }
+}
