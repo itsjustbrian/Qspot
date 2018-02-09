@@ -8,6 +8,9 @@
         "sourceType": "module",
         "ecmaVersion": 8
     },
+    "globals": {
+        "firebase": true
+    },
     "rules": {
         "indent": [
             "error",
