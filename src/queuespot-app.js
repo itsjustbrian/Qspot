@@ -3,6 +3,7 @@ import { firebaseLoader, db, currentUser } from './firebase-loader.js';
 import { UserDataListener } from './data-listeners.js';
 import './queuespot-queue-view.js';
 import './queuespot-search-view.js';
+import './queuespot-party-view.js';
 
 class QueuespotApp extends QueuespotElement {
 
@@ -27,7 +28,7 @@ class QueuespotApp extends QueuespotElement {
   }
 
   async initApp() {
-    await this.nextRendered;
+    await this.renderComplete;
 
     await firebaseLoader.load();
     firebase.auth().onAuthStateChanged((user) => this.user = user);
@@ -47,18 +48,21 @@ class QueuespotApp extends QueuespotElement {
       <button onclick="${this.joinPartyButtonClicked}">Join party</button>
       <queuespot-search-view id="search-view"></queuespot-search-view>
       <queuespot-queue-view id="queue-view"></queuespot-queue-view>
+      <queuespot-party-view id="party-view"></queuespot-party-view>
       <slot></slot>
     `;
   }
 
-  renderCallback(oldProps) {
-    if (this.propertyHasChanged('user')) {
+  didRender(props, changedProps, prevProps) {
+    if (this.propertyChanged(changedProps, 'user')) {
       if (this.user) {
         this.saveUser(this.user);
         this.userDataListener.attach(this.user.uid);
       } else {
         this.userDataListener.detach();
-        this.$('queue-view').partyId = null;
+        this.$('queue-view').party = null;
+        this.$('search-view').party = null;
+        this.$('party-view').party = null;
       }
     }
   }
@@ -80,7 +84,9 @@ class QueuespotApp extends QueuespotElement {
 
   onUserDataReceived(userData) {
     const currentParty = userData ? userData.currentParty : null;
-    this.$('queue-view').partyId = currentParty;
+    this.$('queue-view').party = currentParty;
+    this.$('search-view').party = currentParty;
+    this.$('party-view').party = currentParty;
   }
 
   saveUser(user) {

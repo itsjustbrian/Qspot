@@ -6,14 +6,14 @@ export class QueuespotQueueView extends QueuespotElement {
 
   static get properties() {
     return {
-      partyId: String,
+      party: String,
     };
   }
 
   constructor() {
     super();
 
-    this.partyId = null;
+    this.party = null;
     this.tracksQueueListener = new TracksQueueListener(this.onTracksReceived.bind(this));
   }
 
@@ -34,10 +34,10 @@ export class QueuespotQueueView extends QueuespotElement {
     `;
   }
 
-  renderCallback(oldProps) {
-    if (this.propertyHasChanged('partyId')) {
-      if (this.partyId) {
-        this.tracksQueueListener.attach(this.partyId);
+  didRender(props, changedProps, prevProps) {
+    if (this.propertyChanged(changedProps, 'party')) {
+      if (this.party) {
+        this.tracksQueueListener.attach(this.party);
       } else {
         this.tracksQueueListener.detach();
         this.$('queue').tracks = [];

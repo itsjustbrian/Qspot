@@ -6,6 +6,13 @@
         { "fieldPath": "trackNumber", "mode": "ASCENDING" },
         { "fieldPath": "memberOrderStamp", "mode": "ASCENDING" }
       ]
+    },
+    {
+      "collectionId": "tracks",
+      "fields": [
+        { "fieldsPath": "timestamp", "mode": "ASCENDING" },
+        { "fieldsPath": "submitterId", "mode": "ASCENDING" }
+      ]
     }
   ]
 }

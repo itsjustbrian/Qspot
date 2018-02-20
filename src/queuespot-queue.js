@@ -1,9 +1,7 @@
 import { QueuespotElement, html } from './queuespot-element.js';
 import { repeat } from '../node_modules/lit-html/lib/repeat.js';
 import { until } from '../node_modules/lit-html/lib/until.js';
-import { getSpotifyTrackData } from './spotify-api.js';
-
-import { db } from './firebase-loader.js';
+import { getTrackData } from './track-data-manager.js';
 
 class QueuespotQueue extends QueuespotElement {
 
@@ -17,7 +15,6 @@ class QueuespotQueue extends QueuespotElement {
     super();
 
     this.tracks = [];
-    this.tracksDataMap = {};
   }
 
   ready() {
@@ -26,32 +23,20 @@ class QueuespotQueue extends QueuespotElement {
 
   render(props) {
     return html`
-      <ul>
-        ${repeat(this.tracks, (track) => track.id, (track, index) => html`
+      <ol>
+        ${repeat(this.tracks, (track) => track.id, (track) => html`
           <li>
             ${until(this.getTemplateForTrack(track), html`
               <span>Loading...</span>`)}
+              - ${track.submitterName}
           </li>`)}
-      </ul>
+      </ol>
     `;
   }
 
   async getTemplateForTrack(track) {
-    const trackId = track.id;
-    let trackData = this.tracksDataMap[trackId];
-    if (!trackData) {
-      trackData = await getSpotifyTrackData(trackId);
-      this.tracksDataMap[trackId] = trackData;
-      console.log('Got track', trackData);
-    }
-    return html`${trackData.name} - ${this.getUserInfo(track.submitterId)}`;
-  }
-
-  async getUserInfo(userId) {
-    if (userId) {
-      const userDoc = await db().collection('users').doc(userId).get();
-      return userDoc.data().displayName;
-    }
+    const trackData = await getTrackData(track.id);
+    return html`${trackData.name}`;
   }
 
 }

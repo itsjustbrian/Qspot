@@ -1,3 +1,6 @@
 node_modules
+.runtimeconfig.json
+functions/lib
+function/etc
 yarn.lock
 *.log
