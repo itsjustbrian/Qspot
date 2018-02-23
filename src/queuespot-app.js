@@ -4,6 +4,7 @@ import { UserDataListener } from './data-listeners.js';
 import './queuespot-queue-view.js';
 import './queuespot-search-view.js';
 import './queuespot-party-view.js';
+import './queuespot-login-view.js';
 
 class QueuespotApp extends QueuespotElement {
 
@@ -45,7 +46,8 @@ class QueuespotApp extends QueuespotElement {
       <h1>Queuespot</h1>
       <h3>${this.user ? this.user.displayName : 'Signed out'}</h3>
       ${this.getAuthButton()}
-      <button onclick="${this.joinPartyButtonClicked}">Join party</button>
+      <button on-click="${this.joinPartyButtonClicked}">Join party</button>
+      <queuespot-login-view id="login-view" route="${window.location.href}"></queuespot-login-view>
       <queuespot-search-view id="search-view"></queuespot-search-view>
       <queuespot-queue-view id="queue-view"></queuespot-queue-view>
       <queuespot-party-view id="party-view"></queuespot-party-view>
@@ -68,17 +70,17 @@ class QueuespotApp extends QueuespotElement {
   }
 
   getAuthButton() {
-    const handler = this.user ? this.handleSignOutButtonClicked : this.handleSignInButtonClicked;
-    const text = this.user ? 'Sign out' : 'Sign in';
+    const handler = this.user ? this.signOutButtonClicked : this.signInButtonClicked;
+    const text = this.user ? 'Sign out' : 'Sign in with Google';
     return html`<button onclick="${handler.bind(this)}">${text}</button>`;
   }
 
-  handleSignInButtonClicked(event) {
+  signInButtonClicked(event) {
     const provider = new firebase.auth.GoogleAuthProvider();
     firebase.auth().signInWithRedirect(provider);
   }
 
-  handleSignOutButtonClicked(event) {
+  signOutButtonClicked(event) {
     firebase.auth().signOut();
   }
 
@@ -91,11 +93,11 @@ class QueuespotApp extends QueuespotElement {
 
   saveUser(user) {
     console.log('Saving user:', user.displayName);
-    return db().collection('users').doc(user.uid).set({
+    /*return db().collection('users').doc(user.uid).set({
       displayName: user.displayName,
       email: user.email,
       photoURL: user.photoURL
-    }, { merge: true });
+    }, { merge: true });*/
   }
 
   async joinPartyButtonClicked(event) {

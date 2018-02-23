@@ -38,7 +38,7 @@ class QueuespotPartyView extends QueuespotElement {
       <ul>
         ${this.tracks.map((track) => html`
           <li>
-            ${getTrackData(track.id).then((data) => data.name)} - Position in queue: ${this.trackQueuePositions.get(track.id)}
+            ${this.getTemplateForTrack(track)} - Position in queue: ${this.trackQueuePositions.get(track.id)}
           </li>
         `)}
       </ul>
@@ -53,7 +53,17 @@ class QueuespotPartyView extends QueuespotElement {
       } else {
         this.memberTracksListener.detach();
         this.partyMembersListener.detach();
+        this.tracks = [];
       }
+    }
+  }
+
+  async getTemplateForTrack(track) {
+    try {
+      const trackData = await getTrackData(track.id);
+      return html`${trackData.name}`;
+    } catch (error) {
+      return html`Error getting track data`;
     }
   }
 

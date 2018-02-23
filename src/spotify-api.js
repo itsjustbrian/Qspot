@@ -6,11 +6,7 @@ export async function getSpotifyTrackData(trackId) {
     url: `https://api.spotify.com/v1/tracks/${trackId}`
   };
 
-  try {
-    return await _spotifyRequest(options);
-  } catch (error) {
-    throw new Error(`Unexpected error getting track data: ${error.message}`);
-  }
+  return await _spotifyRequest(options);
 }
 
 export async function searchSpotifyForTracks(query) {
@@ -18,13 +14,9 @@ export async function searchSpotifyForTracks(query) {
     url: `https://api.spotify.com/v1/search?q=${query}&limit=10&type=track&best_match=true&market=US`
   };
 
-  try {
-    const response = await _spotifyRequest(options);
-    console.log('Got tracks', response.tracks.items);
-    return response.tracks.items;
-  } catch (error) {
-    throw new Error(`Unexpected error searching for tracks: ${error.message}`);
-  }
+  const response = await _spotifyRequest(options);
+  console.log('Got tracks', response.tracks.items);
+  return response.tracks.items;
 }
 
 export function toSpotifySearchQuery(input) {
@@ -51,7 +43,7 @@ async function _spotifyRequest(options) {
       options.headers.Authorization = `Bearer ${newToken}`;
       response = await request(options);
     } else {
-      throw new Error(error.message);
+      throw error;
     }
   }
   return response;

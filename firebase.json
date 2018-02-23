@@ -17,8 +17,8 @@
     ],
     "rewrites": [
       {
-        "source": "/functions/getSpotifyAccessToken",
-        "function": "getSpotifyAccessToken"
+        "source": "/api/**",
+        "function": "api"
       },
       {
         "source": "**",

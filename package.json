@@ -1,5 +1,8 @@
 {
   "name": "queuespot",
+  "scripts": {
+    "serve": "cd functions && yarn run build && firebase serve --only functions,hosting"
+  },
   "flat": true,
   "version": "1.0.0",
   "main": "src/index.html",

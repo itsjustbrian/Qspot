@@ -1,6 +1,8 @@
 node_modules
 .runtimeconfig.json
+service-account.json
 functions/lib
 function/etc
 yarn.lock
 *.log
+.vscode

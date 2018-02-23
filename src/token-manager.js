@@ -27,10 +27,8 @@ class TokenManager {
     if (this.newTokenPromise) {
       return await this.newTokenPromise;
     }
-    this.newTokenPromise = request({
-      url: '/functions/getSpotifyAccessToken',
-      responseType: 'text'
-    });
+    this.newTokenPromise = request('/api/getSpotifyClientCredentials')
+      .then((response) => response.token);
     const token = await this.newTokenPromise;
     console.log('Got new token', token);
     this.newTokenPromise = null;

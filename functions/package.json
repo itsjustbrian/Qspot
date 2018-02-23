@@ -11,11 +11,12 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "cookie-parser": "^1.4.3",
     "express": "^4.16.2",
     "firebase-admin": "^5.8.2",
     "firebase-functions": "^0.8.1",
     "request": "^2.83.0",
-    "request-promise-native": "^1.0.5"
+    "spotify-web-api-node": "^2.5.0"
   },
   "devDependencies": {
     "tslint": "^5.8.0",
