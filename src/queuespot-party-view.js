@@ -1,5 +1,5 @@
 import { QueuespotElement, html } from './queuespot-element.js';
-import { MemberTracksListener, PartyMembersListener } from './data-listeners.js';
+import { MemberTracksListener, PartyMembersListener, PartyDataListener } from './data-listeners.js';
 import { currentUser } from './firebase-loader.js';
 import { getTrackData } from './track-data-manager.js';
 
@@ -17,9 +17,11 @@ class QueuespotPartyView extends QueuespotElement {
 
     this.party = null;
     this.tracks = [];
+    this.numTracksPlayed = 0;
     this.trackQueuePositions = new Map();
-    this.memberTracksListener = new MemberTracksListener(this.onMemberTracksReceived.bind(this));
-    this.partyMembersListener = new PartyMembersListener(this.onPartyMembersReceived.bind(this));
+    this.memberTracksListener = new MemberTracksListener((e) => this.onMemberTracksReceived(e));
+    this.partyMembersListener = new PartyMembersListener((e) => this.onPartyMembersReceived(e));
+    this.partyDataListener = new PartyDataListener((e) => this.onPartyDataReceived(e));
   }
 
   ready() {
@@ -38,7 +40,7 @@ class QueuespotPartyView extends QueuespotElement {
       <ul>
         ${this.tracks.map((track) => html`
           <li>
-            ${this.getTemplateForTrack(track)} - Position in queue: ${this.trackQueuePositions.get(track.id)}
+            ${this.getTemplateForTrack(track)} - Position in queue: ${this.trackQueuePositions.get(track.id) - this.numTracksPlayed}
           </li>
         `)}
       </ul>
@@ -50,9 +52,11 @@ class QueuespotPartyView extends QueuespotElement {
       if (this.party) {
         this.memberTracksListener.attach(currentUser().uid, this.party);
         this.partyMembersListener.attach(this.party);
+        this.partyDataListener.attach(this.party);
       } else {
         this.memberTracksListener.detach();
         this.partyMembersListener.detach();
+        this.partyDataListener.detach();
         this.tracks = [];
       }
     }
@@ -61,7 +65,7 @@ class QueuespotPartyView extends QueuespotElement {
   async getTemplateForTrack(track) {
     try {
       const trackData = await getTrackData(track.id);
-      return html`${trackData.name}`;
+      return html`${trackData.name} - ${trackData.artists[0].name}`;
     } catch (error) {
       return html`Error getting track data`;
     }
@@ -71,8 +75,13 @@ class QueuespotPartyView extends QueuespotElement {
     this.tracks = tracks;
   }
 
+  onPartyDataReceived(partyData) {
+    this.numTracksPlayed = partyData.numTracksPlayed || 0;
+    this.invalidate();
+  }
+
   onPartyMembersReceived(members) {
-    console.log('recalc?');
+    console.log('Members received, calculating positions');
 
     // Remove later: Should be retrieving own member data here
     let myOrder;
@@ -103,11 +112,9 @@ class QueuespotPartyView extends QueuespotElement {
           positionInQueue += member.numTracksAdded;
         }
       }
-      //positionInQueue -= numSongsPlayed; Add when host actually starts removing tracks
       this.trackQueuePositions.set(track.id, positionInQueue);
     }
     this.invalidate();
-
   }
 
 }

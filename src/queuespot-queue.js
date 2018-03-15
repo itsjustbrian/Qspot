@@ -37,7 +37,7 @@ class QueuespotQueue extends QueuespotElement {
   async getTemplateForTrack(track) {
     try {
       const trackData = await getTrackData(track.id);
-      return html`${trackData.name}`;
+      return html`${trackData.name} - ${trackData.artists[0].name}`;
     } catch (error) {
       return html`Error getting track data`;
     }

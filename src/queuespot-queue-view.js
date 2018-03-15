@@ -14,7 +14,7 @@ export class QueuespotQueueView extends QueuespotElement {
     super();
 
     this.party = null;
-    this.tracksQueueListener = new TracksQueueListener(this.onTracksReceived.bind(this));
+    this.tracksQueueListener = new TracksQueueListener((e) => this.onTracksReceived(e));
   }
 
   ready() {

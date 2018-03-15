@@ -9,7 +9,8 @@
         "ecmaVersion": 8
     },
     "globals": {
-        "firebase": true
+        "firebase": true,
+        "Spotify": true
     },
     "rules": {
         "indent": [

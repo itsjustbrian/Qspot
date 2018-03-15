@@ -16,7 +16,7 @@ class QueuespotSearchList extends QueuespotElement {
   }
 
   ready() {
-    this.addEventListener('click', this.onClick.bind(this));
+    this.addEventListener('click', (e) => this.onClick(e));
 
     super.ready();
   }
@@ -26,8 +26,8 @@ class QueuespotSearchList extends QueuespotElement {
       <ul>
         ${repeat(this.tracks, (track) => track.id, (track) => html`
           <li>
-            <button trackId=${track.id}>Add track</button>
-            ${track.name}
+            <button data-track$="${track.id}">Add track</button>
+            ${track.name} - ${track.artists[0].name}
           </li>`)}
       </ul>
     `;
@@ -35,7 +35,7 @@ class QueuespotSearchList extends QueuespotElement {
 
   onClick(event) {
     const path = event.composedPath();
-    const trackId = path[0].trackId; // The button
+    const trackId = path[0].dataset.track; // The button
     if (trackId) {
       this.dispatchEvent(new CustomEvent('track-selected', { detail: { trackId: trackId } }));
     }

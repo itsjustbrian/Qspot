@@ -16,12 +16,13 @@ class QueuespotSearchView extends QueuespotElement {
     super();
 
     this.party = null;
+    this._onSearchInput = (e) => this.onSearchInput(e);
   }
 
   ready() {    
     super.ready();
     
-    this.$('search-list').addEventListener('track-selected', this.onTrackSelected.bind(this));
+    this.$('search-list').addEventListener('track-selected', (e) => this.onTrackSelected(e));
   }
 
   render(props) {
@@ -32,7 +33,7 @@ class QueuespotSearchView extends QueuespotElement {
           contain: content
         }
       </style>
-      <input id="search-input" type="search" on-input="${this.onSearchInput.bind(this)}}"></input>
+      <input id="search-input" type="search" on-input="${this._onSearchInput}}"></input>
       <queuespot-search-list id="search-list"></queuespot-search-list>
     `;
   }
@@ -48,11 +49,11 @@ class QueuespotSearchView extends QueuespotElement {
 
   async trySearch(input) {
     if (!input.length) {
-      return;
+      return null;
     }
     const query = toSpotifySearchQuery(input);
     if (this.lastQuery === query) {
-      return;
+      return null;
     }
     this.lastQuery = query;
     try {
@@ -65,7 +66,11 @@ class QueuespotSearchView extends QueuespotElement {
 
   onTrackSelected(event) {
     const trackId = event.detail.trackId;
-    this.addTrackToQueue(trackId);
+    try {
+      this.addTrackToQueue(trackId);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   async addTrackToQueue(trackId) {

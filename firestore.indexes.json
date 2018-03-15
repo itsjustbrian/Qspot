@@ -10,8 +10,8 @@
     {
       "collectionId": "tracks",
       "fields": [
-        { "fieldsPath": "timestamp", "mode": "ASCENDING" },
-        { "fieldsPath": "submitterId", "mode": "ASCENDING" }
+        { "fieldPath": "submitterId", "mode": "ASCENDING" },
+        { "fieldPath": "timestamp", "mode": "ASCENDING" }
       ]
     }
   ]

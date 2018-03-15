@@ -1,13 +1,28 @@
 import { db } from './firebase-loader.js';
 
+// todo: condense more of the code to the super class
 class FirebaseListener {
 
   constructor(callback) {
     this.callback = callback;
     this.unsubscribe = null;
+    this.dependentProps = [];
   }
 
-  attach(callback) {
+  attach(callback, ...props) {
+    // Shallow compare props
+    let numChanged = 0;
+    props.forEach((prop, index) => {
+      // Exit early if prop is null
+      if (!prop) { return; }
+      if (this.dependentProps[index] !== prop) {
+        numChanged++;
+        this.dependentProps[index] = prop;
+      }
+    });
+    if (numChanged === 0) {
+      return;
+    }
     if (callback) {
       this.callback = callback;
     }
@@ -31,10 +46,10 @@ export class UserDataListener extends FirebaseListener {
   }
 
   attach(userId, callback) {
-    super.attach(callback);
+    super.attach(callback, userId);
 
     this.unsubscribe = db().collection('users').doc(userId).onSnapshot((doc) => {
-      this.callback(doc.data());
+      this.callback(parseDoc(doc));
     });
   }
 }
@@ -46,16 +61,10 @@ export class TracksQueueListener extends FirebaseListener {
   }
 
   attach(partyId, callback) {
-    super.attach(callback);
+    super.attach(callback, partyId);
 
     this.unsubscribe = db().collection(`parties/${partyId}/tracks`).orderBy('trackNumber').orderBy('memberOrderStamp').onSnapshot((tracksSnapshot) => {
-      const tracks = [];
-      tracksSnapshot.forEach((doc) => {
-        const track = doc.data();
-        track.id = doc.id;
-        tracks.push(track);
-      });
-      this.callback(tracks);
+      this.callback(parseSnapshot(tracksSnapshot));
     });
   }
 }
@@ -67,16 +76,10 @@ export class MemberTracksListener extends FirebaseListener {
   }
 
   attach(userId, partyId, callback) {
-    super.attach(callback);
+    super.attach(callback, userId, partyId);
 
     this.unsubscribe = db().collection(`parties/${partyId}/tracks`).where('submitterId', '==', userId).orderBy('timestamp').onSnapshot((tracksSnapshot) => {
-      const tracks = [];
-      tracksSnapshot.forEach((doc) => {
-        const track = doc.data();
-        track.id = doc.id;
-        tracks.push(track);
-      });
-      this.callback(tracks);
+      this.callback(parseSnapshot(tracksSnapshot));
     });
   }
 }
@@ -85,19 +88,45 @@ export class PartyMembersListener extends FirebaseListener {
 
   constructor(callback) {
     super(callback);
+    this.partyId = null;
   }
 
   attach(partyId, callback) {
-    super.attach(callback);
+    super.attach(callback, partyId);
 
     this.unsubscribe = db().collection('parties').doc(partyId).collection('members').where('numTracksAdded', '>', 0).onSnapshot((membersSnapshot) => {
-      const members = [];
-      membersSnapshot.forEach((doc) => {
-        const member = doc.data();
-        member.id = doc.id;
-        members.push(member);
-      });
-      this.callback(members);
+      this.callback(parseSnapshot(membersSnapshot));
     });
   }
+}
+
+export class PartyDataListener extends FirebaseListener {
+
+  constructor(callback) {
+    super(callback);
+  }
+
+  attach(partyId, callback) {
+    super.attach(callback, partyId);
+
+    this.unsubscribe = db().collection('parties').doc(partyId).onSnapshot((doc) => {
+      this.callback(parseDoc(doc));
+    });
+  }
+}
+
+function parseDoc(doc) {
+  const item = doc.data();
+  item.id = doc.id;
+  return item;
+}
+
+function parseSnapshot(snapshot) {
+  const items = [];
+  snapshot.forEach((doc) => {
+    const item = doc.data();
+    item.id = doc.id;
+    items.push(item);
+  });
+  return items;
 }

@@ -7,6 +7,11 @@ class FirebaseLoader {
 
   constructor() {
     this.db = null;
+    this._loadedPromise = new Promise((resolve) => {
+      this._resolveFirebaseLoaded = () => {
+        resolve();
+      };
+    });
   }
 
   async load() {
@@ -26,7 +31,12 @@ class FirebaseLoader {
     firebase.initializeApp(config);
     this.db = firebase.firestore();
 
-    return Promise.resolve(firebase);
+    this._resolveFirebaseLoaded();
+    return firebase;
+  }
+
+  get loaded() {
+    return this._loadedPromise;
   }
 }
 
