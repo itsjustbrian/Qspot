@@ -55,10 +55,9 @@ async function _spotifyRequest(options) {
     return await _userAuthenticatedSpotifyRequest(options);
   }
 
-  // Should be if the user is logged in with spotify
-  //if (currentUser()) {
-  //  return await _userAuthenticatedSpotifyRequest(options);
-  //}
+  if (currentUser() && currentUser().claims.spotify) {
+    return await _userAuthenticatedSpotifyRequest(options);
+  }
 
   return await _clientAuthenticatedSpotifyRequest(options);
 }

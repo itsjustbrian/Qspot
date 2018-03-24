@@ -40,7 +40,8 @@ class QueuespotLoginView extends QueuespotElement {
   }
 
   didRender(props, changedProps, prevProps) {
-    
+    super.didRender(changedProps);
+
     if (this.route && this.route.params.get('state')) {
       this.createSpotifyAccount();
     }
@@ -77,8 +78,8 @@ class QueuespotLoginView extends QueuespotElement {
 
     try {
       console.log('Signing in with url', url);
-      const { token } = await request(options);
-      firebase.auth().signInWithCustomToken(token);
+      const { token, providers } = await request(options);
+      token && firebase.auth().signInWithCustomToken(token);
     } catch (error) {
       console.error(error.message);
     }

@@ -3,9 +3,10 @@ import { loadScripts } from './script-loader.js';
 /**
  * Singleton firebase class
  */
-class FirebaseLoader {
+class FirebaseLoader extends EventTarget {
 
   constructor() {
+    super();
     this.db = null;
     this._loadedPromise = new Promise((resolve) => {
       this._resolveFirebaseLoaded = () => {
@@ -30,9 +31,20 @@ class FirebaseLoader {
     };
     firebase.initializeApp(config);
     this.db = firebase.firestore();
+    this.attachUserListener();
 
     this._resolveFirebaseLoaded();
     return firebase;
+  }
+
+  attachUserListener() {
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (user) {
+        const idToken = await user.getIdToken();
+        user['claims'] = JSON.parse(b64DecodeUnicode(idToken.split('.')[1]));
+      }
+      this.dispatchEvent(new CustomEvent('auth-state-changed', { detail: user }));
+    });
   }
 
   get loaded() {
@@ -45,7 +57,7 @@ export let firebaseLoader = new FirebaseLoader();
 
 // Convenience function to get db
 export function db() {
-  if (firebase) {
+  if (window['firebase']) {
     return firebaseLoader.db;
   } else {
     throw new Error('The database could not be referenced because Firebase hasn\'t been loaded yet');
@@ -54,9 +66,16 @@ export function db() {
 
 // Convenience function to get user
 export function currentUser() {
-  if (firebase) {
+  if (window['firebase']) {
     return firebase.auth().currentUser;
   } else {
     throw new Error('The current user could not be referenced because Firebase hasn\'t been loaded yet');
   }
+}
+
+// base64 decode helper
+function b64DecodeUnicode(str) {
+  return decodeURIComponent(atob(str).split('').map(function (c) {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
 }

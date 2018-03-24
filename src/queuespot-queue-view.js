@@ -35,7 +35,9 @@ export class QueuespotQueueView extends QueuespotElement {
   }
 
   didRender(props, changedProps, prevProps) {
-    if (this.propertyChanged(changedProps, 'party')) {
+    super.didRender(changedProps);
+
+    if (this.propertyChanged('party')) {
       if (this.party) {
         this.tracksQueueListener.attach(this.party);
       } else {

@@ -67,15 +67,17 @@ api.get('/getSpotifyClientCredentials', async (request, response) => {
 api.get('/refreshAccessToken', authenticate, async (request, response) => {
   try {
     const uid = request['user'].uid;
-    const userRef = admin.firestore().collection('users').doc(uid);
-
-    const userDoc = await userRef.get();
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
     const refreshToken = userDoc.data().spotifyRefreshToken;
     Spotify.setRefreshToken(refreshToken);
-    const { body } = await Spotify.refreshAccessToken();
+    const refreshTokenResponse = await Spotify.refreshAccessToken();
+    const accessToken = refreshTokenResponse.body['access_token'];
+    const newRefreshToken = refreshTokenResponse.body['refresh_token'];
+    const expiresIn = refreshTokenResponse.body['expires_in'];
+    const expireDate = toExpireDate(expiresIn);
     console.log('The access token has been refreshed!');
-    await saveSpotifyUserTokens(body['access_token'], body['refresh_token'] || refreshToken, uid);
-    return response.status(200).json({ token: body['access_token'] });
+    await saveSpotifyUserTokens(accessToken, newRefreshToken || refreshToken, expireDate, uid);
+    return response.status(200).json({ token: accessToken, expireDate: expireDate });
   } catch (error) {
     return response.status(500).json(NetworkError(500, error.message));
   }
@@ -114,6 +116,8 @@ exports.createSpotifyAccount = functions.https.onRequest((request, response) => 
         const authGrantResponse = await Spotify.authorizationCodeGrant(request.query.code);
         const accessToken = authGrantResponse.body['access_token'];
         const refreshToken = authGrantResponse.body['refresh_token'];
+        const expiresIn = authGrantResponse.body['expires_in'];
+        const expireDate = toExpireDate(expiresIn);
         console.log('Received Access Token:', accessToken, 'and Refresh Token:', refreshToken);
         Spotify.setAccessToken(accessToken);
 
@@ -126,30 +130,65 @@ exports.createSpotifyAccount = functions.https.onRequest((request, response) => 
         const spotifyDisplayName = userResults.body['display_name'];
         const displayName = spotifyDisplayName ? spotifyDisplayName : userId;
         const email = userResults.body['email'];
+        const isPremium = userResults.body['product'] === 'premium';
 
         // The UID we'll assign to the user.
-        const uid = `spotify:${userId}`;
+        let uid = `spotify:${userId}`;
 
-        // Save the access and refresh tokens to Firestore
-        const saveTokensTask = saveSpotifyUserTokens(accessToken, refreshToken, uid);
+        // An object that groups the spotify user's profile data
+        // for the purpose of creating/updating a user
+        const userInfo = {
+          displayName: displayName,
+          email: email,
+          emailVerified: true,
+          ...!!profilePic && { photoURL: profilePic },
+        };
 
-        // Create a Firebase account and get the Custom Auth Token.
-        const createUserTask = createFirebaseAccount(uid, displayName, profilePic, email);
+        // Get the user with same email as the spotify user's email (if one exists)
+        const userRecord = await admin.auth().getUserByEmail(email).catch((error) => {
+          if (error.code === 'auth/user-not-found') {
+            return null;
+          }
+          throw error;
+        });
 
-        // Wait for all async tasks to complete
-        const [firebaseToken] = await Promise.all([createUserTask, saveTokensTask]);
+        const saveTokensTask = (_uid) => {
+          return saveSpotifyUserTokens(accessToken, refreshToken, expireDate, _uid);
+        };
 
-        return response.status(200).jsonp({ token: firebaseToken });
+        const createTokenTask = (_uid) => {
+          return admin.auth().createCustomToken(uid, { spotify: true, spotifyPremium: isPremium });
+        }
+
+        // Different account exists with this email exists.
+        // We'll assign the tokens and claims to that user and sign them in.
+        if (userRecord && userRecord.uid !== uid) {
+          uid = userRecord.uid;
+          const [token] = await Promise.all([createTokenTask(uid), saveTokensTask(uid)]);
+          return response.status(200).json({ token: token, providers: userRecord.providerData });
+        }
+
+        // At this point the user either doesn't exist, or is a returning spotify user
+
+        const createOrUpdateUserTask = async () => {
+          userRecord ? await admin.auth().updateUser(uid, userInfo) : await admin.auth().createUser({ uid: uid, ...userRecord });
+          return createTokenTask(uid);
+        };
+
+        const [firebaseToken] = await Promise.all([createOrUpdateUserTask(), saveTokensTask(uid)]);
+
+        // Return the custom token the client can sign in with
+        return response.status(200).json({ token: firebaseToken });
       } catch (error) {
         // todo: better error handling here
-        return response.status(500).jsonp(NetworkError(500, error.message));
+        return response.status(500).json(NetworkError(500, error.message));
       }
     });
   });
 });
 
 
-// Util functions
+// Actions
 
 function saveSpotifyClientToken(token) {
   return admin.firestore().collection('metadata').doc('spotify').set({
@@ -157,45 +196,19 @@ function saveSpotifyClientToken(token) {
   });
 }
 
-function saveSpotifyUserTokens(accessToken, refreshToken, uid) {
+function saveSpotifyUserTokens(accessToken, refreshToken, expireDate, uid) {
   return admin.firestore().collection('users').doc(uid).set({
     spotifyAccessToken: accessToken,
+    spotifyAccessTokenExpireDate: expireDate,
     spotifyRefreshToken: refreshToken
   }, { merge: true });
 }
 
-/**
- * Creates a Firebase account with the given user profile and returns a custom auth token allowing
- * signing-in this account.
- * Also saves the accessToken to the datastore at /spotifyAccessToken/$uid
- *
- * @returns {Promise<string>} The Firebase custom auth token in a promise.
- */
-async function createFirebaseAccount(uid, displayName, photoURL, email) {
 
-  const userInfo = {
-    displayName: displayName,
-    email: email,
-    emailVerified: true,
-    ...!!photoURL && { photoURL: photoURL },
-  };
+// Util functions
 
-  // Create or update the user account.
-  await admin.auth().updateUser(uid, userInfo).catch((error) => {
-    // If user does not exists we create it.
-    if (error.code === 'auth/user-not-found') {
-      return admin.auth().createUser({
-        ...{ uid: uid },
-        ...userInfo
-      });
-    }
-    throw error;
-  });
-
-  // Create a Firebase custom auth token.
-  const token = await admin.auth().createCustomToken(uid);
-  console.log('Created Custom token for UID "', uid, '" Token:', token);
-  return token;
+function toExpireDate(expiresIn) {
+  return new Date(Date.now() + expiresIn * 1000);
 }
 
 function NetworkError(status, message) {

@@ -1,5 +1,5 @@
 import { loadScripts } from './script-loader.js';
-import { TracksQueueListener } from './data-listeners.js';
+import { TracksQueueListener, PartyDataListener } from './data-listeners.js';
 import { playTrackOnSpotify } from './spotify-api.js';
 import { tokenManager } from './spotify-token-manager.js';
 import { NoSleep } from './no-sleep.js';
@@ -29,6 +29,7 @@ class SpotifyWebPlayer extends EventTarget {
     this.deviceId = null;
     this.noSleep = new NoSleep();
     this.tracksQueueListener = new TracksQueueListener((e) => this._onTracksReceived(e));
+    this.partyDataListener = new PartyDataListener((e) => this._onPartyDataReceived(e));
   }
 
   async load() {
@@ -74,6 +75,10 @@ class SpotifyWebPlayer extends EventTarget {
     this.tracksQueueListener.detach();
   }
 
+  listenIn(partyId) {
+    this.partyDataListener.attach(partyId);
+  }
+
   cleanup() {
     this.noSleep.disable();
     this.tracksQueueListener.detach();
@@ -82,14 +87,14 @@ class SpotifyWebPlayer extends EventTarget {
     this.player.removeListener('authentication_error');
     this.player.removeListener('account_error');
     this.player.removeListener('playback_error');
+    this.player.disconnect();
   }
 
   _sdkReady() {
     return new Promise((resolve, reject) => {
-      window.addEventListener('spotify-web-playback-ready', function callback(e) {
-        window.removeEventListener('spotify-web-playback-ready', callback);
+      window.addEventListener('spotify-web-playback-ready', (e) => {
         resolve();
-      });
+      }, {once: true});
     });
   }
 
@@ -117,8 +122,10 @@ class SpotifyWebPlayer extends EventTarget {
   async _handleTokenRequest(callback) {
     console.log('Spotify requesting new token');
 
-    this.__playerIsReady = this.__resolvePlayerIsReady = null;
-    const token = await tokenManager.getNewUserToken();
+    // Have to temporarily remove this since ready event isnt called
+    // after spotify sdk requests to replace an expired token
+    //this.__playerIsReady = this.__resolvePlayerIsReady = null;
+    const token = await tokenManager.getUserToken();
     callback(token);
   }
 
@@ -133,6 +140,8 @@ class SpotifyWebPlayer extends EventTarget {
       this.dispatchEvent(new CustomEvent('player-disconnected', { detail: this.lifeCycle }));
       return;
     }
+
+    this._publishState(playerState);
 
     if (this.lifeCycle === PLAYER_STATES.PLAYING && this._shouldAdvanceQueue()) {
       this._playNextInQueue();
@@ -163,16 +172,29 @@ class SpotifyWebPlayer extends EventTarget {
     }
   }
 
+  async _onPartyDataReceived(partData) {
+    console.log('Received state', partyData);
+  }
+
   async _popQueueInDb() {
     // Only one user (the host) should be executing this, so avoiding transactions is a-okay
     const partyDoc = await db().collection('parties').doc(this.party).get();
+    if (!partyDoc.exists) {
+      return;
+    }
     const { numTracksPlayed } = partyDoc.data();
     const batch = db().batch();
     batch.delete(db().collection('parties').doc(this.party).collection('tracks').doc(this.currentQueueTrack.id));
     batch.update(db().collection('parties').doc(this.party), {
       numTracksPlayed: (numTracksPlayed || 0) + 1
     });
-    return await batch.commit();
+    batch.commit();
+  }
+
+  _publishState(state) {
+    return db().collection('parties').doc(this.party).update({
+      currentPlayState: state
+    });
   }
 
   _trackIsAtStart() {

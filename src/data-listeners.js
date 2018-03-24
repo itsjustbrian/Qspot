@@ -1,4 +1,5 @@
-import { db } from './firebase-loader.js';
+import { firebaseLoader, db } from './firebase-loader.js';
+import { parseDoc, parseSnapshot } from './firebase-utils.js';
 
 // todo: condense more of the code to the super class
 class FirebaseListener {
@@ -9,7 +10,9 @@ class FirebaseListener {
     this.dependentProps = [];
   }
 
-  attach(callback, ...props) {
+  async attach(callback, ...props) {
+    await firebaseLoader.loaded;
+
     // Shallow compare props
     let numChanged = 0;
     props.forEach((prop, index) => {
@@ -45,8 +48,8 @@ export class UserDataListener extends FirebaseListener {
     super(callback);
   }
 
-  attach(userId, callback) {
-    super.attach(callback, userId);
+  async attach(userId, callback) {
+    await super.attach(callback, userId);
 
     this.unsubscribe = db().collection('users').doc(userId).onSnapshot((doc) => {
       this.callback(parseDoc(doc));
@@ -60,8 +63,8 @@ export class TracksQueueListener extends FirebaseListener {
     super(callback);
   }
 
-  attach(partyId, callback) {
-    super.attach(callback, partyId);
+  async attach(partyId, callback) {
+    await super.attach(callback, partyId);
 
     this.unsubscribe = db().collection(`parties/${partyId}/tracks`).orderBy('trackNumber').orderBy('memberOrderStamp').onSnapshot((tracksSnapshot) => {
       this.callback(parseSnapshot(tracksSnapshot));
@@ -75,8 +78,8 @@ export class MemberTracksListener extends FirebaseListener {
     super(callback);
   }
 
-  attach(userId, partyId, callback) {
-    super.attach(callback, userId, partyId);
+  async attach(userId, partyId, callback) {
+    await super.attach(callback, userId, partyId);
 
     this.unsubscribe = db().collection(`parties/${partyId}/tracks`).where('submitterId', '==', userId).orderBy('timestamp').onSnapshot((tracksSnapshot) => {
       this.callback(parseSnapshot(tracksSnapshot));
@@ -91,8 +94,8 @@ export class PartyMembersListener extends FirebaseListener {
     this.partyId = null;
   }
 
-  attach(partyId, callback) {
-    super.attach(callback, partyId);
+  async attach(partyId, callback) {
+    await super.attach(callback, partyId);
 
     this.unsubscribe = db().collection('parties').doc(partyId).collection('members').where('numTracksAdded', '>', 0).onSnapshot((membersSnapshot) => {
       this.callback(parseSnapshot(membersSnapshot));
@@ -106,8 +109,8 @@ export class PartyDataListener extends FirebaseListener {
     super(callback);
   }
 
-  attach(partyId, callback) {
-    super.attach(callback, partyId);
+  async attach(partyId, callback) {
+    await super.attach(callback, partyId);
 
     this.unsubscribe = db().collection('parties').doc(partyId).onSnapshot((doc) => {
       this.callback(parseDoc(doc));
@@ -115,18 +118,17 @@ export class PartyDataListener extends FirebaseListener {
   }
 }
 
-function parseDoc(doc) {
-  const item = doc.data();
-  item.id = doc.id;
-  return item;
-}
+export class SpotifyMetadataListener extends FirebaseListener {
+   
+  constructor(callback) {
+    super(callback);
+  }
 
-function parseSnapshot(snapshot) {
-  const items = [];
-  snapshot.forEach((doc) => {
-    const item = doc.data();
-    item.id = doc.id;
-    items.push(item);
-  });
-  return items;
+  async attach(callback) {
+    await super.attach(callback);
+
+    this.unsubscribe = db().collection('metadata').doc('spotify').onSnapshot((doc) => {
+      this.callback(parseDoc(doc));
+    });
+  }
 }

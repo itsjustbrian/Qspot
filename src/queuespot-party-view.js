@@ -7,8 +7,7 @@ class QueuespotPartyView extends QueuespotElement {
 
   static get properties() {
     return {
-      party: String,
-      tracks: Array
+      party: String
     };
   }
 
@@ -29,6 +28,9 @@ class QueuespotPartyView extends QueuespotElement {
   }
 
   render(props) {
+
+    this.tracks = this.party ? this.tracks : [];
+
     return html`
       <style>
         :host {
@@ -48,7 +50,9 @@ class QueuespotPartyView extends QueuespotElement {
   }
 
   didRender(props, changedProps, prevProps) {
-    if (this.propertyChanged(changedProps, 'party')) {
+    super.didRender(changedProps);
+
+    if (this.propertyChanged('party')) {
       if (this.party) {
         this.memberTracksListener.attach(currentUser().uid, this.party);
         this.partyMembersListener.attach(this.party);
@@ -57,7 +61,6 @@ class QueuespotPartyView extends QueuespotElement {
         this.memberTracksListener.detach();
         this.partyMembersListener.detach();
         this.partyDataListener.detach();
-        this.tracks = [];
       }
     }
   }
@@ -73,6 +76,7 @@ class QueuespotPartyView extends QueuespotElement {
 
   onMemberTracksReceived(tracks) {
     this.tracks = tracks;
+    this.invalidate();
   }
 
   onPartyDataReceived(partyData) {
@@ -94,7 +98,6 @@ class QueuespotPartyView extends QueuespotElement {
     if (!myOrder) {
       return;
     }
-    //
 
     for (const track of this.tracks) {
       // If this is the third track we've submitted, then the position is at least 3
@@ -103,9 +106,10 @@ class QueuespotPartyView extends QueuespotElement {
         if (member.numTracksAdded >= track.trackNumber) {
           // We know at least trackNumber - 1 tracks submitted by this member are ahead of the track we're looking at
           positionInQueue += track.trackNumber - 1;
+
+          // In this case where, for example, we are looking at the user's 3rd track, and this member also has a 3rd track,
+          // we need to compare their ordering numbers to find out who comes first
           if (member.timeFirstTrackAdded < myOrder) {
-            // In this case where, for example, we are looking at the user's 3rd track, and this member also has a 3rd track,
-            // we need to compare their ordering numbers to find out who comes first
             positionInQueue++;
           }
         } else {

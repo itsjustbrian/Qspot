@@ -64,9 +64,18 @@ class QueuespotSearchView extends QueuespotElement {
     }
   }
 
-  onTrackSelected(event) {
+  async onTrackSelected(event) {
     const trackId = event.detail.trackId;
     try {
+      if (!this.party) {
+        throw new Error('Current user is not in a party');
+      }
+      // Don't want a user to call this concurrently and corrupt
+      // the state of the counter.
+      if (this.__addTrackPromise) {
+        await this.__addTrackPromise;
+      }
+      this.__addTrackPromise = this.addTrackToQueue(trackId);
       this.addTrackToQueue(trackId);
     } catch (error) {
       console.error(error);
@@ -74,39 +83,34 @@ class QueuespotSearchView extends QueuespotElement {
   }
 
   async addTrackToQueue(trackId) {
-    if (this.party) {
-      const batch = db().batch();
-      const timestamp = firebase.firestore.FieldValue.serverTimestamp();
-      let timeFirstTrackAdded = timestamp;
-      let numTracksAdded;
-      const memberDoc = await db().collection('parties').doc(this.party).collection('members').doc(currentUser().uid).get();
-      if (memberDoc.exists) {
-        const memberData = memberDoc.data();
-        numTracksAdded = memberData.numTracksAdded + 1;
-        const memberDocUpdate = {
-          numTracksAdded: numTracksAdded
-        };
-        if (numTracksAdded === 1) {
-          memberDocUpdate.timeFirstTrackAdded = timestamp;
-        } else {
-          timeFirstTrackAdded = memberData.timeFirstTrackAdded;
-        }
-        batch.update(db().collection('parties').doc(this.party).collection('members').doc(currentUser().uid), memberDocUpdate);
-      } else {
-        throw new Error('Current user is not in this party');
-      }
-      batch.set(db().collection('parties').doc(this.party).collection('tracks').doc(trackId), {
-        submitterId: currentUser().uid,
-        submitterName: currentUser().displayName,
-        trackNumber: numTracksAdded,
-        memberOrderStamp: timeFirstTrackAdded,
-        timestamp: timestamp
-      });
-      await batch.commit();
-      console.log('did it :)');
-    } else {
-      throw new Error('Current user is not in a party');
+    const existingTrackDoc = await db().collection('parties').doc(this.party).collection('tracks').doc(trackId).get();
+    if (existingTrackDoc.exists) {
+      throw new Error('This track is already in the queue');
     }
+    const batch = db().batch();
+    const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+    let timeFirstTrackAdded = timestamp;
+    let numTracksAdded;
+    const memberDoc = await db().collection('parties').doc(this.party).collection('members').doc(currentUser().uid).get();
+    const memberData = memberDoc.data();
+    numTracksAdded = memberData.numTracksAdded + 1;
+    const memberDocUpdate = {
+      numTracksAdded: numTracksAdded
+    };
+    if (numTracksAdded === 1) {
+      memberDocUpdate.timeFirstTrackAdded = timestamp;
+    } else {
+      timeFirstTrackAdded = memberData.timeFirstTrackAdded;
+    }
+    batch.update(db().collection('parties').doc(this.party).collection('members').doc(currentUser().uid), memberDocUpdate);
+    batch.set(db().collection('parties').doc(this.party).collection('tracks').doc(trackId), {
+      submitterId: currentUser().uid,
+      submitterName: currentUser().displayName,
+      trackNumber: numTracksAdded,
+      memberOrderStamp: timeFirstTrackAdded,
+      timestamp: timestamp
+    });
+    await batch.commit();
   }
 
 }
