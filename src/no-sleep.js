@@ -1,3 +1,5 @@
+/* NoSleep.js - git.io/vfn01 - Rich Tibbett - MIT license */
+
 import { mediaFile } from './media.js';
 
 // Detect iOS browsers < version 10
