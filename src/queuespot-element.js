@@ -8,7 +8,7 @@ export class QueuespotElement extends LitElement {
   }
 
   propertyChanged(propName) {
-    return this.changedProps && propName in this.changedProps;
+    return this.changedProps && this.changedProps.hasOwnProperty(propName);
   }
 
   $(id) {
