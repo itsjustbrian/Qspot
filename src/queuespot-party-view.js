@@ -1,5 +1,5 @@
 import { QueuespotElement, html } from './queuespot-element.js';
-import { MemberTracksListener, PartyMembersListener, PartyDataListener } from './data-listeners.js';
+import { MemberTracksListener, PartyMembersListener } from './data-listeners.js';
 import { currentUser } from './firebase-loader.js';
 import { getTrackData } from './track-data-manager.js';
 
@@ -7,7 +7,8 @@ class QueuespotPartyView extends QueuespotElement {
 
   static get properties() {
     return {
-      party: String
+      party: String,
+      tracks: Array
     };
   }
 
@@ -20,16 +21,13 @@ class QueuespotPartyView extends QueuespotElement {
     this.trackQueuePositions = new Map();
     this.memberTracksListener = new MemberTracksListener((e) => this.onMemberTracksReceived(e));
     this.partyMembersListener = new PartyMembersListener((e) => this.onPartyMembersReceived(e));
-    this.partyDataListener = new PartyDataListener((e) => this.onPartyDataReceived(e));
   }
 
   ready() {
     super.ready();
   }
 
-  render(props) {
-
-    this.tracks = this.party ? this.tracks : [];
+  _render({ party, tracks }) {
 
     return html`
       <style>
@@ -40,27 +38,24 @@ class QueuespotPartyView extends QueuespotElement {
       </style>
       <h3>Your Tracks</h3>
       <ul>
-        ${this.tracks.map((track) => html`
+        ${(party ? tracks : []).map((track) => html`
           <li>
-            ${this.getTemplateForTrack(track)} - Position in queue: ${this.trackQueuePositions.get(track.id) - this.numTracksPlayed}
+            ${this.getTemplateForTrack(track)} - Position in queue: ${this.trackQueuePositions.get(track.id)}
           </li>
         `)}
       </ul>
     `;
   }
 
-  didRender(props, changedProps, prevProps) {
-    super.didRender(changedProps);
+  _didRender(props, changedProps, prevProps) {
 
-    if (this.propertyChanged('party')) {
+    if (changedProps && 'party' in changedProps) {
       if (this.party) {
         this.memberTracksListener.attach(currentUser().uid, this.party);
         this.partyMembersListener.attach(this.party);
-        this.partyDataListener.attach(this.party);
       } else {
         this.memberTracksListener.detach();
         this.partyMembersListener.detach();
-        this.partyDataListener.detach();
       }
     }
   }
@@ -76,49 +71,49 @@ class QueuespotPartyView extends QueuespotElement {
 
   onMemberTracksReceived(tracks) {
     this.tracks = tracks;
-    this.invalidate();
-  }
-
-  onPartyDataReceived(partyData) {
-    this.numTracksPlayed = partyData.numTracksPlayed || 0;
-    this.invalidate();
   }
 
   onPartyMembersReceived(members) {
     console.log('Members received, calculating positions');
 
     // Remove later: Should be retrieving own member data here
-    let myOrder;
-    members.forEach((member, index) => {
+    let me;
+    for (const [index, member] of members.entries()) {
       if (member.id === currentUser().uid) {
-        myOrder = member.timeFirstTrackAdded;
+        me = member;
         members.splice(index, 1);
+        break;
       }
-    });
-    if (!myOrder) {
+    }
+    if (!me) {
       return;
     }
 
     for (const track of this.tracks) {
-      // If this is the third track we've submitted, then the position is at least 3
-      let positionInQueue = track.trackNumber;
+      // If this is the X'th track we've submitted, then the position is at least X - number of tracks played
+      let positionInQueue = track.trackNumber - me.numTracksPlayed;
       for (const member of members) {
         if (member.numTracksAdded >= track.trackNumber) {
           // We know at least trackNumber - 1 tracks submitted by this member are ahead of the track we're looking at
-          positionInQueue += track.trackNumber - 1;
+          let numTracksInFront = track.trackNumber - 1;
 
-          // In this case where, for example, we are looking at the user's 3rd track, and this member also has a 3rd track,
+          // In this case where, for example, we are looking at the user's X'th track, and this member also has a X'th track,
           // we need to compare their ordering numbers to find out who comes first
-          if (member.timeFirstTrackAdded < myOrder) {
-            positionInQueue++;
+          if (member.timeFirstTrackAdded < me.timeFirstTrackAdded) {
+            numTracksInFront++;
           }
+
+          // If these tracks have been played, they aren't in front anymore
+          numTracksInFront -= member.numTracksPlayed;
+          positionInQueue += numTracksInFront > 0 ? numTracksInFront : 0;
+
         } else {
-          positionInQueue += member.numTracksAdded;
+          positionInQueue += member.numTracksAdded - member.numTracksPlayed;
         }
       }
       this.trackQueuePositions.set(track.id, positionInQueue);
     }
-    this.invalidate();
+    this._requestRender();
   }
 
 }

@@ -21,10 +21,10 @@ class QueuespotQueue extends QueuespotElement {
     super.ready();
   }
 
-  render(props) {
+  _render({ tracks }) {
     return html`
       <ol>
-        ${repeat(this.tracks, (track) => track.id, (track) => html`
+        ${repeat(tracks, (track) => track.id, (track) => html`
           <li>
             ${until(this.getTemplateForTrack(track), html`
               <span>Loading...</span>`)}

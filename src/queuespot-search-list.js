@@ -21,10 +21,10 @@ class QueuespotSearchList extends QueuespotElement {
     super.ready();
   }
 
-  render(props) {
+  _render({ tracks }) {
     return html`
       <ul>
-        ${repeat(this.tracks, (track) => track.id, (track) => html`
+        ${repeat(tracks, (track) => track.id, (track) => html`
           <li>
             <button data-track$="${track.id}">Add track</button>
             ${track.name} - ${track.artists[0].name}

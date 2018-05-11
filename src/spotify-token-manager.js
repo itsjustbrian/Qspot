@@ -1,5 +1,6 @@
 import { db, currentUser } from './firebase-loader.js';
 import { SpotifyMetadataListener } from './data-listeners.js';
+import { API_URL } from './globals.js';
 import request from './request.js';
 
 
@@ -23,7 +24,7 @@ class SpotifyTokenManager {
   }
 
   onSpotifyMetadataReceived(data) {
-    this.clientToken = data.accessToken;
+    this.clientToken = data && data.accessToken;
   }
 
   async getClientToken() {
@@ -71,7 +72,7 @@ class SpotifyTokenManager {
       const { token } = await this.__newClientTokenPromise;
       return token;
     }
-    this.__newClientTokenPromise = request('/api/getSpotifyClientCredentials');
+    this.__newClientTokenPromise = request(`${API_URL}/getSpotifyClientCredentials`);
     const { token } = await this.__newClientTokenPromise;
     console.log('Got new client token', token);
     this.clientToken = token;
@@ -84,7 +85,7 @@ class SpotifyTokenManager {
       const { token } = await this.__newUserTokenPromise;
       return token;
     }
-    this.__newUserTokenPromise = _authenticatedRequest('/api/refreshAccessToken');
+    this.__newUserTokenPromise = _authenticatedRequest(`${API_URL}/refreshAccessToken`);
     const { token, expireDate } = await this.__newUserTokenPromise;
     console.log('Got new user token', token);
     this.userToken = token;

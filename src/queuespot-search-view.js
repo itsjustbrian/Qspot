@@ -1,14 +1,19 @@
+import { Debouncer } from '../node_modules/@polymer/polymer/lib/utils/debounce.js';
+import { timeOut } from '../node_modules/@polymer/polymer/lib/utils/async.js';
 import { QueuespotElement, html } from './queuespot-element.js';
-import { db, currentUser } from './firebase-loader.js';
+import { currentUser } from './firebase-loader.js';
 import { toSpotifySearchQuery } from './spotify-api.js';
 import { searchForTracks } from './track-data-manager.js';
+import { addTrackToQueue } from './queuespot-actions.js';
+import { noParallel } from './promise-utils.js';
 import './queuespot-search-list.js';
 
 class QueuespotSearchView extends QueuespotElement {
 
   static get properties() {
     return {
-      party: String
+      party: String,
+      tracks: Array
     };
   }
 
@@ -17,6 +22,7 @@ class QueuespotSearchView extends QueuespotElement {
 
     this.party = null;
     this._onSearchInput = (e) => this.onSearchInput(e);
+    this.noParallelAddTrackToQueue = noParallel(addTrackToQueue);
   }
 
   ready() {    
@@ -25,7 +31,7 @@ class QueuespotSearchView extends QueuespotElement {
     this.$('search-list').addEventListener('track-selected', (e) => this.onTrackSelected(e));
   }
 
-  render(props) {
+  _render({ party, tracks }) {
     return html`
       <style>
         :host {
@@ -34,17 +40,17 @@ class QueuespotSearchView extends QueuespotElement {
         }
       </style>
       <input id="search-input" type="search" on-input="${this._onSearchInput}}"></input>
-      <queuespot-search-list id="search-list"></queuespot-search-list>
+      <queuespot-search-list id="search-list" tracks="${this.tracks}"></queuespot-search-list>
     `;
   }
 
   async onSearchInput(event) {
-    const input = this.$('search-input').value;
-    console.log('user typed input', input);
-    const tracks = await this.trySearch(input);
-    if (tracks) {
-      this.$('search-list').tracks = tracks;
-    }
+    this._debounceSearchJob = Debouncer.debounce(this._debounceSearchJob, timeOut.after(300), async () => {
+      const input = this.$('search-input').value;
+      console.log('Searching with input:', input);
+      const tracks = await this.trySearch(input);
+      tracks && (this.tracks = tracks);
+    });
   }
 
   async trySearch(input) {
@@ -70,47 +76,10 @@ class QueuespotSearchView extends QueuespotElement {
       if (!this.party) {
         throw new Error('Current user is not in a party');
       }
-      // Don't want a user to call this concurrently and corrupt
-      // the state of the counter.
-      if (this.__addTrackPromise) {
-        await this.__addTrackPromise;
-      }
-      this.__addTrackPromise = this.addTrackToQueue(trackId);
-      this.addTrackToQueue(trackId);
+      await this.noParallelAddTrackToQueue(currentUser().uid, currentUser().displayName, this.party, trackId);
     } catch (error) {
       console.error(error);
     }
-  }
-
-  async addTrackToQueue(trackId) {
-    const existingTrackDoc = await db().collection('parties').doc(this.party).collection('tracks').doc(trackId).get();
-    if (existingTrackDoc.exists) {
-      throw new Error('This track is already in the queue');
-    }
-    const batch = db().batch();
-    const timestamp = firebase.firestore.FieldValue.serverTimestamp();
-    let timeFirstTrackAdded = timestamp;
-    let numTracksAdded;
-    const memberDoc = await db().collection('parties').doc(this.party).collection('members').doc(currentUser().uid).get();
-    const memberData = memberDoc.data();
-    numTracksAdded = memberData.numTracksAdded + 1;
-    const memberDocUpdate = {
-      numTracksAdded: numTracksAdded
-    };
-    if (numTracksAdded === 1) {
-      memberDocUpdate.timeFirstTrackAdded = timestamp;
-    } else {
-      timeFirstTrackAdded = memberData.timeFirstTrackAdded;
-    }
-    batch.update(db().collection('parties').doc(this.party).collection('members').doc(currentUser().uid), memberDocUpdate);
-    batch.set(db().collection('parties').doc(this.party).collection('tracks').doc(trackId), {
-      submitterId: currentUser().uid,
-      submitterName: currentUser().displayName,
-      trackNumber: numTracksAdded,
-      memberOrderStamp: timeFirstTrackAdded,
-      timestamp: timestamp
-    });
-    await batch.commit();
   }
 
 }

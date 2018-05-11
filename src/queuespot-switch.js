@@ -4,7 +4,8 @@ class QueuespotSwitch extends QueuespotElement {
 
   static get properties() {
     return {
-      selected: String
+      selected: String,
+      attributeForSelected: String
     };
   }
 
@@ -12,6 +13,7 @@ class QueuespotSwitch extends QueuespotElement {
     super();
 
     this.selected = '';
+    this.attributeForSelected = 'name';
     this.selectedItem = null;
     this.itemMap = {};
   }
@@ -21,14 +23,14 @@ class QueuespotSwitch extends QueuespotElement {
     const slottedNodes = this.$('slot').assignedNodes();
     for (const node of slottedNodes) {
       if (node.nodeType === Node.ELEMENT_NODE) {
-        const name = node.dataset.route;
+        const name = node.getAttribute(this.attributeForSelected);
         name && (this.itemMap[name] = node);
       }
     }
-    this.invalidate();
+    this._requestRender();
   }
 
-  render(props) {
+  _render(props) {
     const item = this.itemMap[this.selected];
     if (item) {
       item.classList.add('selected');

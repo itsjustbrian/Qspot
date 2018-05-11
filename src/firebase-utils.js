@@ -1,6 +1,9 @@
 
 export function parseDoc(doc) {
   const item = doc.data();
+  if (!item) {
+    return null;
+  }
   item.id = doc.id;
   return item;
 }

@@ -17,37 +17,11 @@
     <queuespot-app>hi</queuespot-app>
 
     <script src="./node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js" async></script>
-
-   <!-- <script src="https://sdk.scdn.co/spotify-player.js"></script>
-    <script> window.onSpotifyWebPlaybackSDKReady = () => {
-        const player = new Spotify.Player({
-          name: "Hello world!",
-          getOAuthToken: cb => { cb("BQAFYcwR0WdTnmU2hWr2VfbgZK-HL7KvS6KgtEuG4rGydiONS6Mdurech_mEYLGtoWLadtS-3MsF7Un15dZVnVW6aXmyhX2qt5n1jBmglSxfvRiCy_Tm9xv8qP3lohG-H7_wCG03MukFGOd0aRtfeRl8YC0dxVuAfVc"); }
-        })
-
-        // Error handling
-        player.on('initialization_error', e => { console.error(e); });
-        player.on('authentication_error', e => { console.error(e); });
-        player.on('account_error', e => { console.error(e); });
-        player.on('playback_error', e => { console.error(e); });
-
-        // Playback status updates
-        player.on('player_state_changed', state => { console.log(state); });
-
-        // Ready
-        player.on('ready', data => {
-          let { device_id } = data;
-          console.log('Ready with Device ID', device_id);
-        });
-
-        // Connect to the player!
-        player.connect();
-      }; </script>-->
-      <script>
-        window.onSpotifyWebPlaybackSDKReady = () => {
-          window.dispatchEvent(new CustomEvent('spotify-web-playback-ready'));
-        };
-      </script>
+    <script>
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        window.dispatchEvent(new CustomEvent('spotify-web-playback-ready'));
+      };
+    </script>
   </body>
 
 </html>

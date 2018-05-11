@@ -1,3 +1,5 @@
 {
-  "entrypoint": "index.html"
+  "entrypoint": "index.html",
+  "npm": true,
+  "moduleResolution": "node"
 }

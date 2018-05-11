@@ -1,5 +1,5 @@
 
-export class Route {
+export class Router {
 
   constructor(path, params, parts, previousParts) {
     if (!arguments.length) {
@@ -37,7 +37,7 @@ export class Route {
       if (!this.subRoute) {
         const previousParts = this.previousParts.slice();
         previousParts.push(this.currentPart);
-        this.subRoute = new Route(this.path, this.params, this.parts.slice(1), previousParts);
+        this.subRoute = new Router(this.path, this.params, this.parts.slice(1), previousParts);
       }
       return this.subRoute;
     } else {

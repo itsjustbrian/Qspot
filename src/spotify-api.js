@@ -10,24 +10,31 @@ export async function getSpotifyTrackData(trackId) {
   return await _spotifyRequest(options);
 }
 
+// Note: search seems to have trouble with 1 or 2 letters at beggining
+// or after space. Possible only when best match is true?
 export async function searchSpotifyForTracks(query) {
   const options = {
     url: `https://api.spotify.com/v1/search?q=${query}&limit=10&type=track&best_match=true&market=US`
   };
 
   const response = await _spotifyRequest(options);
-  console.log('Got tracks', response.tracks.items);
+  console.log('Got tracks in search', response.tracks.items);
   return response.tracks.items;
 }
 
-export async function playTrackOnSpotify(trackId, deviceId) {
-  console.log('playing using device id', deviceId);
+// todo: playing on currently active device doesn't work
+// if they don't have a compatible active device, need to check
+// for active devices and default to web player or some other explicit device
+export async function playTrack(trackId, deviceId) {
+  console.log('Playing track using device id', deviceId);
   const deviceQueryParam = (deviceId || '') && `?device_id=${deviceId}`;
   const options = {
     userAuthenticated: true,
     url: `https://api.spotify.com/v1/me/player/play${deviceQueryParam}`,
-    body: {
-      uris: [`spotify:track:${trackId}`]
+    
+    // If a trackId is provided, add the body
+    ...!!trackId && {
+      body: { uris: [`spotify:track:${trackId}`] }
     },
     method: 'PUT'
   };
@@ -36,14 +43,30 @@ export async function playTrackOnSpotify(trackId, deviceId) {
   console.log('Played track', trackId, response);
 }
 
-export function toSpotifySearchQuery(input) {
-  // Check if last 2 characters of query are alphanumueric,
-  // and if so, add wildcard to query. Wildcards improve search
-  // results but can produce errors without this precaution
-  if (input.length > 2 && /^[a-zA-Z0-9]{2}$/.test(input.slice(-2))) {
-    return input += '*';
-  }
-  return input;
+export async function pauseTrack(deviceId) {
+  console.log('Pausing track');
+  const deviceQueryParam = (deviceId || '') && `?device_id=${deviceId}`;
+  const options = {
+    userAuthenticated: true,
+    url: `https://api.spotify.com/v1/me/player/pause${deviceQueryParam}`,
+    method: 'PUT'
+  };
+
+  await _spotifyRequest(options);
+  console.log('Paused');
+}
+
+export async function seekInTrack(position) {
+  console.log('Seeking to position:', position);
+
+  const positionParam = `?position_ms=${position}`;
+  const options = {
+    userAuthenticated: true,
+    url: `https://api.spotify.com/v1/me/player/seek${positionParam}`,
+    method: 'PUT'
+  };
+
+  return _spotifyRequest(options);
 }
 
 async function _spotifyRequest(options) {
@@ -93,4 +116,14 @@ async function _requestRetry(options, token, newTokenGetter) {
     }
   }
   return response;
+}
+
+export function toSpotifySearchQuery(input) {
+  // Check if last 2 characters of query are alphanumueric,
+  // and if so, add wildcard to query. Wildcards improve search
+  // results but can produce errors without this precaution
+  if (input.length > 2 && /^[a-zA-Z0-9]{2}$/.test(input.slice(-2))) {
+    return input += '*';
+  }
+  return input;
 }

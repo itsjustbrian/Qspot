@@ -119,7 +119,7 @@ export class PartyDataListener extends FirebaseListener {
 }
 
 export class SpotifyMetadataListener extends FirebaseListener {
-   
+  
   constructor(callback) {
     super(callback);
   }

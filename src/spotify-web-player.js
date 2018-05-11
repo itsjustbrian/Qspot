@@ -1,6 +1,8 @@
 import { loadScripts } from './script-loader.js';
 import { TracksQueueListener, PartyDataListener } from './data-listeners.js';
-import { playTrackOnSpotify } from './spotify-api.js';
+import { playTrack } from './spotify-api.js';
+import { advanceQueue } from './queuespot-actions.js';
+import { noParallel } from './promise-utils.js';
 import { tokenManager } from './spotify-token-manager.js';
 import { NoSleep } from './no-sleep.js';
 
@@ -30,6 +32,8 @@ class SpotifyWebPlayer extends EventTarget {
     this.noSleep = new NoSleep();
     this.tracksQueueListener = new TracksQueueListener((e) => this._onTracksReceived(e));
     this.partyDataListener = new PartyDataListener((e) => this._onPartyDataReceived(e));
+    this.noParallelAdvanceQueue = noParallel(advanceQueue);
+    this.noParallelPlayTrack = noParallel(playTrack);
   }
 
   async load() {
@@ -76,7 +80,14 @@ class SpotifyWebPlayer extends EventTarget {
   }
 
   listenIn(partyId) {
+    this.party = partyId;
+    this.noSleep.enable();
     this.partyDataListener.attach(partyId);
+  }
+
+  stopListening() {
+    this.noSleep.disable();
+    this.partyDataListener.detach();
   }
 
   cleanup() {
@@ -143,7 +154,7 @@ class SpotifyWebPlayer extends EventTarget {
 
     this._publishState(playerState);
 
-    if (this.lifeCycle === PLAYER_STATES.PLAYING && this._shouldAdvanceQueue()) {
+    if (this.lifeCycle === PLAYER_STATES.PLAYING && this._shouldAdvanceQueue(this.playerState, this.currentQueueTrack)) {
       this._playNextInQueue();
     }
   }
@@ -151,11 +162,11 @@ class SpotifyWebPlayer extends EventTarget {
   async _playNextInQueue() {
     console.log('Playing next in queue');
 
-    await this.ready;
+    await this.ready; // Issue with waiting for ready after player detects token has expired
     this.currentQueueTrack = this.queue[0];
     if (this.currentQueueTrack) {
-      this._popQueueInDb();
-      playTrackOnSpotify(this.currentQueueTrack.id, this.deviceId);
+      this.noParallelAdvanceQueue(this.party, this.currentQueueTrack.id, this.currentQueueTrack.submitterId);
+      this.noParallelPlayTrack(this.currentQueueTrack.id, this.deviceId);
     } else {
       console.log('No tracks to play');
     }
@@ -172,52 +183,54 @@ class SpotifyWebPlayer extends EventTarget {
     }
   }
 
-  async _onPartyDataReceived(partData) {
-    console.log('Received state', partyData);
-  }
+  async _onPartyDataReceived(partyData) {
+    console.log('Received party state', partyData.currentPlayerState);
+    
+    const oldState = this.playerState;
+    const newState = partyData.currentPlayerState;
+    this.playerState = newState;
 
-  async _popQueueInDb() {
-    // Only one user (the host) should be executing this, so avoiding transactions is a-okay
-    const partyDoc = await db().collection('parties').doc(this.party).get();
-    if (!partyDoc.exists) {
-      return;
+    if (!oldState || this._trackIsStartingPlayback(newState)) {
+      this.noParallelPlayTrack(newState.track_window.current_track.id);
     }
-    const { numTracksPlayed } = partyDoc.data();
-    const batch = db().batch();
-    batch.delete(db().collection('parties').doc(this.party).collection('tracks').doc(this.currentQueueTrack.id));
-    batch.update(db().collection('parties').doc(this.party), {
-      numTracksPlayed: (numTracksPlayed || 0) + 1
-    });
-    batch.commit();
   }
 
   _publishState(state) {
     return db().collection('parties').doc(this.party).update({
-      currentPlayState: state
+      currentPlayerState: state
     });
   }
 
-  _trackIsAtStart() {
-    return this.playerState.position === 0 && this.playerState.duration === 0;
+  _trackIsAtStart(playerState) {
+    return playerState.position === 0;
   }
 
-  _onCurrentTrack() {
-    const currentPlayerTrack = this.playerState.track_window.current_track;
-    return !!this.currentQueueTrack && !!currentPlayerTrack && currentPlayerTrack.id === this.currentQueueTrack.id;
+  _trackIsStartingPlayback(playerState) {
+    const previousTrack = playerState.track_window.previous_tracks[0];
+    return this._trackIsAtStart(playerState) && !previousTrack && !playerState.paused;
   }
 
-  _finishedCurrentTrack() {
-    const previousTrack = this.playerState.track_window.previous_tracks[0];
-    return this._trackIsAtStart() && this._onCurrentTrack() && !!previousTrack && previousTrack.id === this.currentQueueTrack.id;
+  _onCurrentTrack(playerState, currentTrack) {
+    const currentPlayerTrack = playerState.track_window.current_track;
+    return !!currentTrack && !!currentPlayerTrack && currentPlayerTrack.id === currentTrack.id;
   }
 
-  _currentTrackSkipped() {
-    const previousTrack = this.playerState.track_window.previous_tracks[0];
-    return this._trackIsAtStart() && this._onCurrentTrack() && !previousTrack && this.playerState.paused;
+  _finishedCurrentTrack(playerState, currentTrack) {
+    const previousTrack = playerState.track_window.previous_tracks[0];
+    return this._trackIsAtStart(playerState) &&
+      this._onCurrentTrack(playerState, currentTrack) && !!previousTrack && previousTrack.id === currentTrack.id;
+  }
+
+  _currentTrackSkipped(playerState, currentTrack) {
+    const previousTrack = playerState.track_window.previous_tracks[0];
+    return this._trackIsAtStart(playerState) &&
+      this._onCurrentTrack(playerState, currentTrack) && !previousTrack && playerState.paused;
   }
   
-  _shouldAdvanceQueue() {
-    return !this.currentQueueTrack || this._finishedCurrentTrack() || this._currentTrackSkipped();
+  _shouldAdvanceQueue(playerState, currentTrack) {
+    return this._trackIsAtStart(playerState) &&
+      (!currentTrack || this._finishedCurrentTrack(playerState, currentTrack) ||
+        this._currentTrackSkipped(playerState, currentTrack));
   }
 }
 

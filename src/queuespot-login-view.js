@@ -1,11 +1,8 @@
 import { QueuespotElement, html } from './queuespot-element.js';
-import { replaceRoute } from './route.js';
+import { replaceRoute } from './router.js';
 import { firebaseLoader } from './firebase-loader.js';
+import { API_URL } from './globals.js';
 import request from './request.js';
-
-const LOCAL_URL = 'http://localhost:5001/queuespot-917af/us-central1';
-const PRODUCTION_URL = 'https://us-central1-queuespot-917af.cloudfunctions.net';
-const FUNCTIONS_URL = LOCAL_URL;
 
 class QueuespotLoginView extends QueuespotElement {
 
@@ -26,7 +23,7 @@ class QueuespotLoginView extends QueuespotElement {
     super.ready();
   }
 
-  render(props) {
+  _render({ route }) {
     return html`
       <style>
         :host {
@@ -39,8 +36,7 @@ class QueuespotLoginView extends QueuespotElement {
     `;
   }
 
-  didRender(props, changedProps, prevProps) {
-    super.didRender(changedProps);
+  _didRender(props, changedProps, prevProps) {
 
     if (this.route && this.route.params.get('state')) {
       this.createSpotifyAccount();
@@ -49,7 +45,7 @@ class QueuespotLoginView extends QueuespotElement {
 
   signInToSpotify(event) {
     // Need to change this url in build proccess
-    window.location.href = `${FUNCTIONS_URL}/spotifyAuthRedirect`;
+    window.location.href = `${API_URL}/spotifyAuthRedirect`;
   }
 
   async createSpotifyAccount() {
@@ -67,7 +63,7 @@ class QueuespotLoginView extends QueuespotElement {
       return;
     }
 
-    const url = `${FUNCTIONS_URL}/createSpotifyAccount` +
+    const url = `${API_URL}/createSpotifyAccount` +
       `?code=${encodeURIComponent(code)}` +
       `&state=${encodeURIComponent(state)}`;
     

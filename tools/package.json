@@ -1,0 +1,14 @@
+{
+  "name": "tools",
+  "scripts": {
+    "concurrent-serve": "concurrently --kill-others \"cd .. && yarn run polymer-serve\" \"cd .. && yarn run functions-serve\""
+  },
+  "version": "1.0.0",
+  "description": "Tools for queuespot",
+  "license": "MIT",
+  "repository": "https://github.com/fafcrumb/queuespot.git",
+  "author": "fafcrumb <bri.ferch@gmail.com>",
+  "devDependencies": {
+    "concurrently": "^3.5.1"
+  }
+}

@@ -17,9 +17,9 @@ class FirebaseLoader extends EventTarget {
 
   async load() {
     await loadScripts([
-      'https://www.gstatic.com/firebasejs/4.9.0/firebase-app.js',
-      'https://www.gstatic.com/firebasejs/4.9.0/firebase-auth.js',
-      'https://www.gstatic.com/firebasejs/4.9.0/firebase-firestore.js'
+      'https://www.gstatic.com/firebasejs/4.12.0/firebase-app.js',
+      'https://www.gstatic.com/firebasejs/4.12.0/firebase-auth.js',
+      'https://www.gstatic.com/firebasejs/4.12.0/firebase-firestore.js'
     ], false);
 
     // Initialize Firebase

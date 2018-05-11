@@ -25,7 +25,7 @@ export default function request(options) {
 
 function getNetworkError(xhr) {
   if (!xhr || !xhr.response) {
-    return { message: 'Critical failure' };
+    return { message: 'Unknown error' };
   }
   return xhr.response.error;
 }
