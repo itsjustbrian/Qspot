@@ -1,6 +1,6 @@
 import { QueuespotElement, html } from './queuespot-element.js';
 import { Router, routeLink } from './router.js';
-import { firebaseLoader } from './firebase-loader.js';
+import { firebaseLoader, currentUser } from './firebase-loader.js';
 import { spotifyWebPlayer, PLAYER_STATES } from './spotify-web-player.js';
 import { UserDataListener } from './data-listeners.js';
 import { getParty, getPartyWithCode, joinParty, createParty, saveUser } from './queuespot-actions.js';
@@ -15,17 +15,15 @@ class QueuespotApp extends QueuespotElement {
   static get properties() {
     return {
       user: Object,
-      route: Object,
-      currentParty: String
+      party: Object,
+      route: Object
     };
   }
 
   constructor() {
     super();
 
-    this.user = null;
-    this.currentParty = null;
-    this.isHost = false;
+    this.user = this.party = null;
     this.route = new Router();
     this.route.onUrlChanged = () => this._requestRender();
     this._joinPartyButtonClicked = (e) => this.joinPartyButtonClicked(e);
@@ -48,7 +46,7 @@ class QueuespotApp extends QueuespotElement {
     this.initApp();
   }
 
-  _render({ user, route, currentParty }) {
+  _render({ user, party, route }) {
     return html`
       <style>
         :host {
@@ -66,6 +64,7 @@ class QueuespotApp extends QueuespotElement {
       
       <h3>${user ? user.displayName : 'Signed out'}</h3>
       ${this.getAuthButton()}
+      <input id="code-input"></input>
       <button on-click="${this._joinPartyButtonClicked}">Join party</button>
       <button on-click="${this._startPartyButtonClicked}">Start Party</button>
       <button on-click="${this._createPartyButtonClicked}">Create Party</button>
@@ -73,33 +72,13 @@ class QueuespotApp extends QueuespotElement {
 
       <queuespot-switch selected="${route.currentPart}" attributeForSelected="name">
         <queuespot-login-view id="login-view" name="login" route="${route.sub('login')}"></queuespot-login-view>
-        <queuespot-search-view id="search-view" name="search" route="${route.sub('search')}" party="${currentParty}"></queuespot-search-view>
-        <queuespot-queue-view id="queue-view" name="queue" route="${route.sub('queue')}" party="${currentParty}"></queuespot-queue-view>
-        <queuespot-party-view id="party-view" name="party" route="${route.sub('party')}" party="${currentParty}"></queuespot-party-view>
+        <queuespot-search-view id="search-view" name="search" route="${route.sub('search')}" party="${party}"></queuespot-search-view>
+        <queuespot-queue-view id="queue-view" name="queue" route="${route.sub('queue')}" party="${party}"></queuespot-queue-view>
+        <queuespot-party-view id="party-view" name="party" route="${route.sub('party')}" party="${party}"></queuespot-party-view>
       </queuespot-switch>
 
       <slot></slot>
     `;
-  }
-
-  async _didRender(props, changedProps, prevProps) {
-
-    if (changedProps && 'user' in changedProps) {
-      if (this.user) {
-        saveUser(this.user.uid, this.user.displayName, this.user.email, this.user.photoURL);
-        this.userDataListener.attach(this.user.uid);
-      } else {
-        this.userDataListener.detach();
-      }
-    }
-
-    if (changedProps && 'currentParty' in changedProps && this.currentParty) {
-      await this.checkIfHost();
-
-      if (this.isHost && spotifyWebPlayer.lifeCycle === PLAYER_STATES.NOT_LOADED) {
-        spotifyWebPlayer.load();
-      }
-    }
   }
 
   getAuthButton() {
@@ -119,26 +98,27 @@ class QueuespotApp extends QueuespotElement {
 
   async joinPartyButtonClicked(event) {
     if (this.user) {
-      const partyData = await getPartyWithCode('TIOS');
-      joinParty(this.user.uid, partyData.id);
+      const code = this.$('code-input').value;
+      const partyData = await getPartyWithCode(code);
+      partyData ? joinParty(this.user.uid, partyData.id) : console.log('Party not found');
     }
   }
 
   startPartyButtonClicked(event) {
-    if (this.isHost) {
-      spotifyWebPlayer.start(this.currentParty);
+    if (this.user && this.user.isHost) {
+      spotifyWebPlayer.start(this.user.currentParty);
     }
   }
 
   listenInButtonClicked(event) {
-    if (this.user && this.user.claims.spotifyPremium && this.currentParty && !this.isHost) {
-      spotifyWebPlayer.listenIn(this.currentParty);
+    if (this.user && this.user.claims.spotifyPremium && this.user.currentParty && !this.user.isHost) {
+      spotifyWebPlayer.listenIn(this.user.currentParty);
     }
   }
 
-  createPartyButtonClicked(event) {
-    if (this.user && this.user.claims.spotifyPremium && !this.currentParty) {
-      createParty(this.user.uid);
+  async createPartyButtonClicked(event) {
+    if (this.user && this.user.claims.spotifyPremium && !this.user.currentParty) {
+      await createParty(this.user.uid, this.user.spotifyCountry);
       if (spotifyWebPlayer.lifeCycle === PLAYER_STATES.NOT_LOADED) {
         spotifyWebPlayer.load();
       }
@@ -148,19 +128,34 @@ class QueuespotApp extends QueuespotElement {
   async initApp() {
     await firebaseLoader.load();
     firebaseLoader.addEventListener('auth-state-changed', (event) => {
-      this.user = event['detail'];
-      this.currentParty = this.user ? this.currentParty : null;
+      const userData = event['detail'];
+      if (userData) {
+        this.userDataListener.attach(userData.uid);
+        saveUser(userData.uid, userData.displayName, userData.email, userData.photoURL);
+      } else {
+        this.user = null;
+        this.userDataListener.detach();
+      }
     });
   }
 
-  onUserDataReceived(userData) {
-    this.currentParty = userData ? userData.currentParty : null;
-  }
+  async onUserDataReceived(userData) {
+    this.user = {
+      ...currentUser(),
+      ...userData
+    };
+    console.log('Set user', this.user);
 
-  async checkIfHost() {
-    const partyData = await getParty(this.currentParty);
-    this.isHost = partyData.host === this.user.uid;
-    console.log('User is host?', this.isHost);
+    if (userData.currentParty && userData.currentParty !== (this.party && this.party.id)) { // Party has changed
+      this.party = await getParty(userData.currentParty);
+      this.user.isHost = this.party.host === this.user.uid;
+      console.log('User is host?', this.user.isHost);
+      if (this.user.isHost && spotifyWebPlayer.lifeCycle === PLAYER_STATES.NOT_LOADED) {
+        spotifyWebPlayer.load();
+      }
+    } else if (!userData.currentParty) {
+      this.party = null;
+    }
   }
   
 }

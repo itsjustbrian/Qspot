@@ -2,7 +2,9 @@ import request from './request.js';
 import { tokenManager } from './spotify-token-manager.js';
 import { currentUser } from './firebase-loader.js';
 
-export async function getSpotifyTrackData(trackId) {
+const DEFAULT_SEARCH_LIMIT = 10;
+
+export async function getTrackData(trackId) {
   const options = {
     url: `https://api.spotify.com/v1/tracks/${trackId}`
   };
@@ -12,9 +14,9 @@ export async function getSpotifyTrackData(trackId) {
 
 // Note: search seems to have trouble with 1 or 2 letters at beggining
 // or after space. Possible only when best match is true?
-export async function searchSpotifyForTracks(query) {
+export async function searchForTracks(query, market, limit = DEFAULT_SEARCH_LIMIT) {
   const options = {
-    url: `https://api.spotify.com/v1/search?q=${query}&limit=10&type=track&best_match=true&market=US`
+    url: `https://api.spotify.com/v1/search?q=${query}&limit=${limit}&type=track&best_match=true${market ? `&market=${market}` : ''}`
   };
 
   const response = await _spotifyRequest(options);
@@ -118,7 +120,7 @@ async function _requestRetry(options, token, newTokenGetter) {
   return response;
 }
 
-export function toSpotifySearchQuery(input) {
+export function toSearchQuery(input) {
   // Check if last 2 characters of query are alphanumueric,
   // and if so, add wildcard to query. Wildcards improve search
   // results but can produce errors without this precaution

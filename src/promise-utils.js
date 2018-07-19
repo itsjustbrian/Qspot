@@ -1,7 +1,7 @@
 
 /**
  * Turns the given function into a function
- * that is forced synchronus. Any calls to the returned
+ * that is forced synchronous. Any calls to the returned
  * function will execute one after the other
  * @param {function} fn 
  */

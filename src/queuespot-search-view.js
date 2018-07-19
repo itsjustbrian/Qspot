@@ -2,7 +2,7 @@ import { Debouncer } from '../node_modules/@polymer/polymer/lib/utils/debounce.j
 import { timeOut } from '../node_modules/@polymer/polymer/lib/utils/async.js';
 import { QueuespotElement, html } from './queuespot-element.js';
 import { currentUser } from './firebase-loader.js';
-import { toSpotifySearchQuery } from './spotify-api.js';
+import { toSearchQuery } from './spotify-api.js';
 import { searchForTracks } from './track-data-manager.js';
 import { addTrackToQueue } from './queuespot-actions.js';
 import { noParallel } from './promise-utils.js';
@@ -12,7 +12,7 @@ class QueuespotSearchView extends QueuespotElement {
 
   static get properties() {
     return {
-      party: String,
+      party: Object,
       tracks: Array
     };
   }
@@ -31,7 +31,7 @@ class QueuespotSearchView extends QueuespotElement {
     this.$('search-list').addEventListener('track-selected', (e) => this.onTrackSelected(e));
   }
 
-  _render({ party, tracks }) {
+  _render({ tracks }) {
     return html`
       <style>
         :host {
@@ -40,7 +40,7 @@ class QueuespotSearchView extends QueuespotElement {
         }
       </style>
       <input id="search-input" type="search" on-input="${this._onSearchInput}}"></input>
-      <queuespot-search-list id="search-list" tracks="${this.tracks}"></queuespot-search-list>
+      <queuespot-search-list id="search-list" tracks="${tracks}"></queuespot-search-list>
     `;
   }
 
@@ -57,13 +57,14 @@ class QueuespotSearchView extends QueuespotElement {
     if (!input.length) {
       return null;
     }
-    const query = toSpotifySearchQuery(input);
+    const query = toSearchQuery(input);
     if (this.lastQuery === query) {
       return null;
     }
     this.lastQuery = query;
     try {
-      const tracks = await searchForTracks(query);
+      console.log('country', this.party && this.party.country);
+      const tracks = await searchForTracks(query, this.party && this.party.country);
       return this.lastQuery === query ? tracks : null;
     } catch (error) {
       console.error(error);
@@ -76,7 +77,7 @@ class QueuespotSearchView extends QueuespotElement {
       if (!this.party) {
         throw new Error('Current user is not in a party');
       }
-      await this.noParallelAddTrackToQueue(currentUser().uid, currentUser().displayName, this.party, trackId);
+      await this.noParallelAddTrackToQueue(currentUser().uid, currentUser().displayName, this.party.id, trackId);
     } catch (error) {
       console.error(error);
     }

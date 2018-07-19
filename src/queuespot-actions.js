@@ -1,11 +1,12 @@
 import { db } from './firebase-loader.js';
 import { parseDoc } from './firebase-utils.js';
+import { randomLetters } from './code-generation-utils.js';
 
 /**
  * Executes an action with a new batch by default,
  * but uses an existing batch if provided with one.
  * 
- * @param {*} batch 
+ * @param {*} batch
  * @param {function} doOperations 
  */
 async function doBatchedAction(batch, doOperations) {
@@ -25,17 +26,83 @@ export async function saveUser(uid, displayName, email, photoURL, batch) {
   });
 }
 
-export async function createParty(userId, batch) {
+export async function createParty(userId, country, batch) {
 
-  return await doBatchedAction(batch, async (batch) => {
-    const newPartyRef = db().collection('parties').doc();
-    batch.set(newPartyRef, {
-      code: 'TIOS', // want to eventually generate
-      host: userId
-    });
-    
-    // The creator/host must join the party
-    await joinParty(userId, newPartyRef.id, batch);
+  const newPartyRef = db().collection('parties').doc();
+  const partyCode = await generatePartyCode(newPartyRef.id);
+
+  try {
+    await doBatchedAction(batch, async (batch) => {
+      batch.set(newPartyRef, {
+        code: partyCode,
+        host: userId,
+        country: country
+      });
+
+      // The creator/host must join the party
+      await joinParty(userId, newPartyRef.id, batch);
+    }); 
+  } catch (error) {
+    // Roll back party code generation
+    deletePartyCode(newPartyRef.id);
+    throw error;
+  }
+}
+
+export async function generatePartyCode(partyId) {
+  
+  let partyCode = null;
+  await db().runTransaction(async (transaction) => {
+    partyCode = randomLetters(4);
+    const newPartyCodeRef = db().collection('party-codes').doc(partyCode);
+    const partyCodeDoc = await transaction.get(newPartyCodeRef);
+    if (partyCodeDoc.exists) {
+      const partyCodeDocData = parseDoc(partyCodeDoc);
+      const parties = partyCodeDocData.parties;
+      let extensionNum = partyCodeDocData.extensionNum;
+      partyCode += extensionNum > 0 ? extensionNum : '';
+      parties[partyId] = extensionNum;
+      extensionNum++;
+      await transaction.set(newPartyCodeRef, {
+        parties: parties,
+        extensionNum: extensionNum
+      });
+    } else {
+      await transaction.set(newPartyCodeRef, {
+        parties: { [partyId]: 0 },
+        extensionNum: 1
+      });
+    }
+  });
+
+  if (!partyCode) {
+    throw new Error('Failed to generate party code');  
+  }
+  return partyCode;
+}
+
+export async function deletePartyCode(partyId) {
+  
+  const partyCodesRef = db().collection('party-codes');
+  const { docs } = await partyCodesRef.where(`parties.${partyId}`, '>=', 0).get();
+  if (!docs.length) {
+    return; // This party ID is not in the party-codes ledger, so nothing to delete
+  }
+  await db().runTransaction(async (transaction) => {
+    const partyCodeDoc = await transaction.get(partyCodesRef.doc(docs[0].id));
+    if (!partyCodeDoc.exists) {
+      throw 'Document does not exist!';
+    }
+
+    const parties = parseDoc(partyCodeDoc).parties;
+    if (Object.keys(parties).length > 1) {
+      delete parties[partyId];
+      transaction.update(partyCodesRef.doc(partyCodeDoc.id), {
+        parties: parties
+      });
+    } else {
+      transaction.delete(partyCodesRef.doc(partyCodeDoc.id));
+    }
   });
 }
 
@@ -122,6 +189,10 @@ export async function getParty(partyId, returnDoc) {
 
 export async function getPartyWithCode(code, returnDoc) {
   const { docs } = await db().collection('parties').where('code', '==', code).get();
+  if (!docs[0]) {
+    // Party not found
+    return null;
+  }
   return returnDoc ? docs[0] : parseDoc(docs[0]);
 }
 

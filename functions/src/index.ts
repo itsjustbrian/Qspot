@@ -75,7 +75,11 @@ app.get('/refreshAccessToken', authenticate, async (request, response) => {
     const expiresIn = refreshTokenResponse.body['expires_in'];
     const expireDate = toExpireDate(expiresIn);
     console.log('The access token has been refreshed!');
-    await saveSpotifyUserTokens(accessToken, newRefreshToken || refreshToken, expireDate, uid);
+    await saveSpotifyUserData(uid, {
+      spotifyAccessToken: accessToken,
+      spotifyAccessTokenExpireDate: expireDate,
+      spotifyRefreshToken: newRefreshToken || refreshToken,
+    });
     return response.status(200).json({ token: accessToken, expireDate: expireDate });
   } catch (error) {
     return response.status(500).json(NetworkError(500, error.message));
@@ -119,6 +123,7 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
     const displayName = spotifyDisplayName ? spotifyDisplayName : userId;
     const email = userResults.body['email'];
     const isPremium = userResults.body['product'] === 'premium';
+    const country = userResults.body['country'];
 
     // The UID we'll assign to the user.
     let uid = `spotify:${userId}`;
@@ -140,8 +145,13 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
       throw error;
     });
 
-    const saveTokensTask = (_uid) => {
-      return saveSpotifyUserTokens(accessToken, refreshToken, expireDate, _uid);
+    const saveUserTask = (_uid) => {
+      return saveSpotifyUserData(_uid, {
+        spotifyAccessToken: accessToken,
+        spotifyAccessTokenExpireDate: expireDate,
+        spotifyRefreshToken: refreshToken,
+        spotifyCountry: country
+      });
     };
 
     const createTokenTask = (_uid) => {
@@ -152,7 +162,7 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
     // We'll assign the tokens and claims to that user and sign them in.
     if (userRecord && userRecord.uid !== uid) {
       uid = userRecord.uid;
-      const [token] = await Promise.all([createTokenTask(uid), saveTokensTask(uid)]);
+      const [token] = await Promise.all([createTokenTask(uid), saveUserTask(uid)]);
       return response.status(200).json({ token: token, providers: userRecord.providerData });
     }
 
@@ -163,7 +173,7 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
       return createTokenTask(uid);
     };
 
-    const [firebaseToken] = await Promise.all([createOrUpdateUserTask(uid), saveTokensTask(uid)]);
+    const [firebaseToken] = await Promise.all([createOrUpdateUserTask(uid), saveUserTask(uid)]);
 
     // Return the custom token the client can sign in with
     return response.status(200).json({ token: firebaseToken });
@@ -187,12 +197,8 @@ function saveSpotifyClientToken(token) {
   });
 }
 
-function saveSpotifyUserTokens(accessToken, refreshToken, expireDate, uid) {
-  return admin.firestore().collection('users').doc(uid).set({
-    spotifyAccessToken: accessToken,
-    spotifyAccessTokenExpireDate: expireDate,
-    spotifyRefreshToken: refreshToken
-  }, { merge: true });
+function saveSpotifyUserData(uid, data) {
+  return admin.firestore().collection('users').doc(uid).set(data, { merge: true });
 }
 
 

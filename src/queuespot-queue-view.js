@@ -6,7 +6,7 @@ export class QueuespotQueueView extends QueuespotElement {
 
   static get properties() {
     return {
-      party: String,
+      party: Object,
       tracks: Array,
       currentTrack: Object
     };
@@ -44,8 +44,8 @@ export class QueuespotQueueView extends QueuespotElement {
 
     if (changedProps && 'party' in changedProps) {
       if (this.party) {
-        this.tracksQueueListener.attach(this.party);
-        this.partyDataListener.attach(this.party);
+        this.tracksQueueListener.attach(this.party.id);
+        this.partyDataListener.attach(this.party.id);
       } else {
         this.tracksQueueListener.detach();
         this.partyDataListener.detach();
