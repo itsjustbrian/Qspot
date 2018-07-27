@@ -131,8 +131,8 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
     // An object that groups the spotify user's profile data
     // for the purpose of creating/updating a user
     const userInfo = {
-      displayName: displayName,
-      email: email,
+      displayName,
+      email,
       emailVerified: true,
       ...!!profilePic && { photoURL: profilePic },
     };
@@ -211,8 +211,8 @@ function toExpireDate(expiresIn) {
 function NetworkError(status, message) {
   return {
     error: {
-      status: status,
-      message: message
+      status,
+      message
     }
   }
 }

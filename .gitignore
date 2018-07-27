@@ -1,4 +1,5 @@
 node_modules
+build
 .runtimeconfig.json
 service-account.json
 functions/lib
