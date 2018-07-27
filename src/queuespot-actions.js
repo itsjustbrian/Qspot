@@ -26,13 +26,13 @@ export async function saveUser(uid, displayName, email, photoURL, batch) {
   });
 }
 
-export async function createParty(userId, country, batch) {
+export async function createParty(userId, country) {
 
   const newPartyRef = db().collection('parties').doc();
   const partyCode = await generatePartyCode(newPartyRef.id);
 
   try {
-    await doBatchedAction(batch, async (batch) => {
+    await doBatchedAction(null, async (batch) => {
       batch.set(newPartyRef, {
         code: partyCode,
         host: userId,

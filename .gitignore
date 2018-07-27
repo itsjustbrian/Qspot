@@ -3,6 +3,7 @@ node_modules
 service-account.json
 functions/lib
 function/etc
+firebase-config.js
 yarn.lock
 *.log
 .vscode

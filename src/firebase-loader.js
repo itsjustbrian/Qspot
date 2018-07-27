@@ -1,4 +1,5 @@
 import { loadScripts } from './script-loader.js';
+import { config } from './firebase-config.js';
 
 /**
  * Singleton firebase class
@@ -23,12 +24,6 @@ class FirebaseLoader extends EventTarget {
     ], false);
 
     // Initialize Firebase
-    const config = {
-      apiKey: 'AIzaSyAabUU0gKPSk3wbgqdKFvcixl_NhKAJgj4',
-      authDomain: 'queuespot-917af.firebaseapp.com',
-      databaseURL: 'https://queuespot-917af.firebaseio.com',
-      projectId: 'queuespot-917af',
-    };
     firebase.initializeApp(config);
     this.db = firebase.firestore();
     this.attachUserListener();
