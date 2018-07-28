@@ -1,10 +1,12 @@
-node_modules
-build
+build/
+node_modules/
+test/integration/screenshots-current/
+_site/
 .runtimeconfig.json
 service-account.json
 functions/lib
 function/etc
 firebase-config.js
-yarn.lock
 *.log
 .vscode
+.DS_Store
