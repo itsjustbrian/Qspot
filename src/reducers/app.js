@@ -9,7 +9,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 */
 
 import {
-  UPDATE_PAGE,
+  UPDATE_LOCATION,
+  RECEIVE_LAZY_RESOURCES,
   UPDATE_OFFLINE,
   OPEN_SNACKBAR,
   CLOSE_SNACKBAR,
@@ -17,10 +18,16 @@ import {
 
 const app = (state = {}, action) => {
   switch (action.type) {
-    case UPDATE_PAGE:
+    case UPDATE_LOCATION:
       return {
         ...state,
-        page: action.page
+        page: action.page,
+        query: action.query || ''
+      };
+    case RECEIVE_LAZY_RESOURCES:
+      return {
+        ...state,
+        lazyResourcesLoaded: true
       };
     case UPDATE_OFFLINE:
       return {

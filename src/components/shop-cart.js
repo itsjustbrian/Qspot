@@ -35,8 +35,7 @@ class ShopCart extends connect(store)(LitElement) {
         :host { display: block; }
       </style>
       <p hidden="${_items.length !== 0}">Please add some products to cart.</p>
-      ${_items.map((item) =>
-        html`
+      ${_items.map((item) => html`
           <div>
             <shop-item name="${item.title}" amount="${item.amount}" price="${item.price}"></shop-item>
             <button
@@ -46,8 +45,7 @@ class ShopCart extends connect(store)(LitElement) {
               ${removeFromCartIcon}
             </button>
           </div>
-        `
-      )}
+        `)}
       <p hidden="${!_items.length}"><b>Total:</b> ${_total}</p>
     `;
   }

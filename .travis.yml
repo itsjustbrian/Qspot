@@ -11,10 +11,7 @@ matrix:
     addons:
       chrome: stable
       firefox: latest
-      sauce_connect:
-        username: "fafcrumb"
-      jwt:
-        secure: "YmUtVMs4pOUiVWHffsylf+ZzFA8hv6R4ngKKdjebdjhn2MqCNw4gWv/UoujMmpBVLKCUyuZ9ER05dqAmxPH4w67qr60MwEwY4C8mCdjQtKAVwADLstMMa0Y76vodpNXIUDhawCv9wFf4jtoDUb5XVGTQJdY5TcmQNGCoZi2fo/qoXqAKv1eKTPUVwJ0OxkqvG97jPd9tg1syk+H0E8chBuiPESG0rF5tDRQc2yc3sMurcVaXrjnet5Pyvq0IsV5joVGUBtU6qwr89Cm4JCWYE62vNlSqJU2PY6CnuA/SaXXWh1B7XjzDnfJYcqt1URJ14iHdkCiJgSD9Ad97M967MKyOOu1RPJ4/d4IIW+bohQqDUmwNQwokJWofhBuIHAkFXu3CX4BDHDCP+LNVnsa8RjcZnSJDPBp/G1S0W5qr7dzIsiGuVCunbeMBI3LhpkRXkC2Sl9J4x0oB2gPkn/d6UoWxsSL6Dxl+QuOyXSODcNbZdnHnUz56+dmCTAwS747Z6ZpNe5wspl1EqXjregByKw08wxd3HFRkI11+QPKXhbhjdyUYHOWOYxSvcnwMBTDy/C0bTSlLLMWVONUIoLS8p85M4FqEdhcEDeLybpG0KjoEbygcKacwCvOJrGuWyHjpR45HpXuKf6n60RDPl5RISdMD+VA6Ql8Y08b2W/+Yx3U="
+      sauce_connect: true
     before_script:
     - export DISPLAY=:99.0
     - sh -e /etc/init.d/xvfb start

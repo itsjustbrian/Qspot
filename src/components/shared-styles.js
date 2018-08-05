@@ -14,6 +14,7 @@ export const SharedStyles = html`
 <style>
   :host {
     display: block;
+    contain: content;
     box-sizing: border-box;
   }
   /* Add other styles shared across multiple components here */

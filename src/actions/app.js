@@ -8,48 +8,76 @@ Code distributed by Google as part of the polymer project is also
 subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
 */
 
-export const UPDATE_PAGE = 'UPDATE_PAGE';
+export const UPDATE_LOCATION = 'UPDATE_LOCATION';
+export const RECEIVE_LAZY_RESOURCES = 'RECEIVE_LAZY_RESOURCES';
 export const UPDATE_OFFLINE = 'UPDATE_OFFLINE';
 export const OPEN_SNACKBAR = 'OPEN_SNACKBAR';
 export const CLOSE_SNACKBAR = 'CLOSE_SNACKBAR';
 
-export const navigate = (path) => (dispatch) => {
+export const updateLocation = (location) => (dispatch) => {
   // Extract the page name from path.
-  const page = path === '/' ? 'view1' : path.slice(1);
+  const path = window.decodeURIComponent(location.pathname);
+  const splitPath = (path || '').slice(1).split('/');
+  let page = splitPath[0] || dispatch(replaceLocationURL('/queue'));
+  const params = new URLSearchParams(location.search);
+  const query = params.get('q');
 
   // Any other info you might want to extract from the path (like page type),
   // you can do here
-  dispatch(loadPage(page));
+  dispatch(loadPage(page, query));
 };
 
-const loadPage = (page) => (dispatch) => {
-  switch(page) {
-    case 'view1':
-      import('../components/my-view1.js').then((module) => {
-        // Put code in here that you want to run every time when
-        // navigating to view1 after my-view1.js is loaded.
-      });
+const loadPage = (page, query) => async (dispatch, getState) => {
+  let module;
+  switch (page) {
+    case 'login':
+      await import('../components/qspot-login.js')
       break;
-    case 'view2':
-      import('../components/my-view2.js');
+    case 'search':
+      await import('../components/qspot-search.js');
       break;
-    case 'view3':
-      import('../components/my-view3.js');
+    case 'queue':
+      await import('../components/qspot-queue.js');
+      break;
+    case 'party':
+      await import('../components/qspot-party.js');
       break;
     default:
-      page = 'view404';
-      import('../components/my-view404.js');
+      // Nothing matches, set page to 404
+      page = '404';
+  }
+  
+  if (page === '404') {
+    import('../components/qspot-404.js');
   }
 
-  dispatch(updatePage(page));
+  dispatch({
+    type: UPDATE_LOCATION,
+    page,
+    query
+  });
+
+  const lazyLoadComplete = getState().app.lazyResourcesLoaded;
+  // load lazy resources after render and set `lazyLoadComplete` when done.
+  if (!lazyLoadComplete) {
+    requestAnimationFrame(async () => {
+      await import('../components/lazy-resources.js');
+      dispatch({
+        type: RECEIVE_LAZY_RESOURCES
+      });
+    });
+  }
 };
 
-const updatePage = (page) => {
-  return {
-    type: UPDATE_PAGE,
-    page
-  };
-};
+export const pushLocationURL = (url) => (dispatch) => {
+  window.history.pushState({}, '', url);
+  dispatch(updateLocation(window.location));
+}
+
+export const replaceLocationURL = (url) => (dispatch) => {
+  window.history.replaceState({}, '', url);
+  dispatch(updateLocation(window.location));
+}
 
 let snackbarTimer;
 

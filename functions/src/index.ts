@@ -158,7 +158,7 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
       return admin.auth().createCustomToken(_uid, { spotify: true, spotifyPremium: isPremium });
     }
 
-    // Different account exists with this email exists.
+    // Different account with this email exists.
     // We'll assign the tokens and claims to that user and sign them in.
     if (userRecord && userRecord.uid !== uid) {
       uid = userRecord.uid;

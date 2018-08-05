@@ -1,5 +1,5 @@
 
-export function loadScripts(urls, async) {
+export const loadScripts = (urls, async) => {
   const scriptPromises = [];
   const frag = document.createDocumentFragment();
   for (const url of urls) {
@@ -12,9 +12,9 @@ export function loadScripts(urls, async) {
   }
   document.body.appendChild(frag);
   return Promise.all(scriptPromises);
-}
+};
 
-function _promisifyScript(script) {
+const _promisifyScript = (script) => {
   return new Promise((resolve, reject) => {
     script.onload = () => {
       resolve(script.src);
@@ -24,4 +24,4 @@ function _promisifyScript(script) {
       reject(script.src);
     };
   });
-}
+};

@@ -32,7 +32,7 @@ import './shop-cart.js';
 import { SharedStyles } from './shared-styles.js';
 import { ButtonSharedStyles } from './button-shared-styles.js';
 
-class MyView3 extends connect(store)(PageViewElement) {
+class QspotQueue extends connect(store)(PageViewElement) {
   _render({_quantity, _error}) {
     return html`
       ${SharedStyles}
@@ -76,11 +76,13 @@ class MyView3 extends connect(store)(PageViewElement) {
     `;
   }
 
-  static get properties() { return {
-    // This is the data from the store.
-    _quantity: Number,
-    _error: String
-  }}
+  static get properties() {
+    return {
+      // This is the data from the store.
+      _quantity: Number,
+      _error: String
+    };
+  }
 
   // This is called every time something is updated in the store.
   _stateChanged(state) {
@@ -89,4 +91,4 @@ class MyView3 extends connect(store)(PageViewElement) {
   }
 }
 
-window.customElements.define('my-view3', MyView3);
+window.customElements.define('qspot-queue', QspotQueue);

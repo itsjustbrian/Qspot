@@ -14,7 +14,7 @@ import { PageViewElement } from './page-view-element.js';
 // These are the shared styles needed by this element.
 import { SharedStyles } from './shared-styles.js';
 
-class MyView404 extends PageViewElement {
+class Qspot404 extends PageViewElement {
   _render(props) {
     return html`
       ${SharedStyles}
@@ -24,8 +24,8 @@ class MyView404 extends PageViewElement {
            <a href="/">home</a> and try again?
         </p>
       </section>
-    `
+    `;
   }
 }
 
-window.customElements.define('my-view404', MyView404);
+window.customElements.define('qspot-404', Qspot404);

@@ -120,12 +120,12 @@ async function _requestRetry(options, token, newTokenGetter) {
   return response;
 }
 
-export function toSearchQuery(input) {
+export function encodeQuery(query) {
   // Check if last 2 characters of query are alphanumueric,
   // and if so, add wildcard to query. Wildcards improve search
   // results but can produce errors without this precaution
-  if (input.length > 2 && /^[a-zA-Z0-9]{2}$/.test(input.slice(-2))) {
-    return input += '*';
+  if (query.length > 2 && /^[a-zA-Z0-9]{2}$/.test(query.slice(-2))) {
+    return query += '*';
   }
-  return input;
+  return query;
 }
