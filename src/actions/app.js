@@ -73,7 +73,7 @@ export const updateLocation = (location) => async (dispatch, getState) => {
   await dispatch(loadPage(module));
 
   requestAnimationFrame(async () => {
-    (await import('../components/lazy-resources.js')).tryInstallPlayer();
+    await import('../components/lazy-resources.js');
     const lazyLoadComplete = getState().app.lazyResourcesLoaded;
     lazyLoadComplete || dispatch({
       type: RECEIVE_LAZY_RESOURCES
