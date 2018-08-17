@@ -9,86 +9,58 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 */
 
 import { html } from '@polymer/lit-element';
+import { repeat } from '../../node_modules/lit-html/lib/repeat';
 import { PageViewElement } from './page-view-element.js';
 import { connect } from 'pwa-helpers/connect-mixin.js';
 
-// This element is connected to the Redux store.
 import { store } from '../store.js';
 
-// These are the actions needed by this element.
-import { checkout } from '../actions/shop.js';
+import { attachQueueListener } from '../actions/queue';
 
 // We are lazy loading its reducer.
-import shop, { cartQuantitySelector } from '../reducers/shop.js';
+import queue, { queueSelector } from '../reducers/queue.js';
 store.addReducers({
-  shop
+  queue
 });
-
-// These are the elements needed by this element.
-import './shop-products.js';
-import './shop-cart.js';
 
 // These are the shared styles needed by this element.
 import { SharedStyles } from './shared-styles.js';
-import { ButtonSharedStyles } from './button-shared-styles.js';
 
 class QspotQueue extends connect(store)(PageViewElement) {
-  _render({_quantity, _error}) {
+  _render({ _queue }) {
     return html`
       ${SharedStyles}
-      ${ButtonSharedStyles}
-      <style>
-        /* Add more specificity (.checkout) to workaround an issue in lit-element:
-           https://github.com/PolymerLabs/lit-element/issues/34 */
-        button.checkout {
-          border: 2px solid black;
-          border-radius: 3px;
-          padding: 8px 16px;
-        }
-      </style>
-
       <section>
-        <h2>Redux example: shopping cart</h2>
-        <p>Number of items in the cart: <b>${_quantity}</b></p>
-
-        <p>This is a slightly more advanced Redux example, that simulates a
-          shopping cart: getting the products, adding/removing items to the
-          cart, and a checkout action, that can sometimes randomly fail (to
-          simulate where you would add failure handling). </p>
-        <p>This view, as well as its 2 child elements, <code>&lt;shop-products&gt;</code> and
-        <code>&lt;shop-cart&gt;</code> are connected to the Redux store.</p>
-      </section>
-      <section>
-        <h3>Products</h3>
-        <shop-products></shop-products>
-
-        <h3>Your Cart</h3>
-        <shop-cart></shop-cart>
-
-        <div>${_error}</div>
+        <h2>Queue</h2>
         <p>
-          <button class="checkout" hidden="${_quantity == 0}"
-              on-click="${() => store.dispatch(checkout())}">
-            Checkout
-          </button>
+          <ol>
+            ${repeat(_queue, (item) => item.id, (item) => html`
+              <li>
+                ${item.failure ? 'Error loading track' : item.loading ? 'Loading...' : this.getTrackTemplate(item.track)}
+                <br>
+                Added by: ${item.submitterName}
+              </li>`)}
+          </ol>
         </p>
       </section>
     `;
   }
 
+  getTrackTemplate(track) {
+    return html`${track.name} - ${track.artists.reduce((str, artist, index) => str + (index === 0 ? artist.name : ', ' + artist.name), '')}`;
+  }
+
   static get properties() {
     return {
-      // This is the data from the store.
-      _quantity: Number,
-      _error: String
+      _queue: Array
     };
   }
 
-  // This is called every time something is updated in the store.
   _stateChanged(state) {
-    this._quantity = cartQuantitySelector(state);
-    this._error = state.shop.error;
+    this._queue = queueSelector(state);
   }
 }
 
 window.customElements.define('qspot-queue', QspotQueue);
+
+export { attachQueueListener };

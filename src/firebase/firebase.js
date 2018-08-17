@@ -3,52 +3,42 @@ import { config } from './firebase-config.js';
 
 const FIREBASE_VERSION = '4.13.0';
 
-// Singleton Firebase reference
-export let firebase = null;
+export let firebase;
+export let firestore;
+export let firebaseAuth;
+export let Timestamp;
+export let FieldValue;
 
-// Reference to firestore db
-export let firestore = null;
-
-// Reference to auth
-export let firebaseAuth = null;
-
-let loadAppPromise, loadAuthPromise, loadFirestorePromise;
-
+let loadAppPromise;
 const loadApp = () => {
-  if (!loadAppPromise) {
-    loadAppPromise = (async () => {
-      await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`], true);
+  return loadAppPromise || (loadAppPromise = (async () => {
+    await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`], true);
 
-      // Initialize Firebase
-      firebase = window['firebase'];
-      firebase.initializeApp(config);
-    })();
-  }
-  return loadAppPromise;
+    firebase = window['firebase'];
+    firebase.initializeApp(config);
+  })());
 };
 
+let loadAuthPromise;
 export const loadAuth = () => {
-  if (!loadAuthPromise) {
-    loadAuthPromise = (async () => {
-      await loadApp();
-      await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-auth.js`], true);
+  return loadAuthPromise || (loadAuthPromise = (async () => {
+    await loadApp();
+    await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-auth.js`], true);
 
-      firebaseAuth = firebase.auth();
-    })();
-  }
-  return loadAuthPromise;
+    firebaseAuth = firebase.auth();
+  })());
 };
 
+let loadFirestorePromise;
 export const loadFirestore = () => {
-  if (!loadFirestorePromise) {
-    loadFirestorePromise = (async () => {
-      await loadApp();
-      await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`], true);
+  return loadFirestorePromise || (loadFirestorePromise = (async () => {
+    await loadApp();
+    await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`], true);
 
-      firestore = firebase.firestore();
-      const settings = { timestampsInSnapshots: true };
-      firestore.settings(settings);
-    })();
-  }
-  return loadFirestorePromise;
+    firestore = firebase.firestore();
+    Timestamp = firebase.firestore.Timestamp;
+    FieldValue = firebase.firestore.FieldValue;
+    const settings = { timestampsInSnapshots: true };
+    firestore.settings(settings);
+  })());
 };

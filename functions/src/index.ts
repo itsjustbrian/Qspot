@@ -12,11 +12,15 @@ admin.initializeApp({
   databaseURL: `https://${process.env.GCLOUD_PROJECT}.firebaseio.com`,
 });
 
+const firestore = admin.firestore();
+const settings = { timestampsInSnapshots: true };
+firestore.settings(settings);
+
 const PRODUCTION_ENV = process.env.NODE_ENV === 'production';
 const APP_URL = PRODUCTION_ENV ? `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com` : 'http://localhost:8081';
 const SPOTIFY_CLIENT_ID = functions.config().spotify.client_id;
 const SPOTIFY_CLIENT_SECRET = functions.config().spotify.client_secret;
-const SPOTIFY_AUTH_REDIRECT_URI = `${APP_URL}/login`;
+const SPOTIFY_AUTH_REDIRECT_URI = `${APP_URL}/authorize_spotify`;
 const OAUTH_SCOPES = ["streaming", "user-read-birthdate", "user-read-email", "user-read-private"];
 
 const CORS_OPTIONS = {
@@ -25,13 +29,12 @@ const CORS_OPTIONS = {
   credentials: true
 };
 
+// note: replace spotify-web-api-node
 const Spotify = new SpotifyWebApi({
   clientId: SPOTIFY_CLIENT_ID,
   clientSecret: SPOTIFY_CLIENT_SECRET,
   redirectUri: SPOTIFY_AUTH_REDIRECT_URI,
 });
-
-// todo: once supported in spotify-web-api-node, make spotify requests over persistant connection
 
 const app = express();
 
@@ -59,6 +62,7 @@ app.get('/getSpotifyClientCredentials', async (request, response) => {
     await saveSpotifyClientToken(spotifyAuthResponse.body['access_token']);
     return response.status(200).json({ token: spotifyAuthResponse.body['access_token'] });
   } catch (error) {
+    console.error(error);
     return response.status(500).json(NetworkError(500, error.message));
   }
 });
@@ -67,21 +71,21 @@ app.get('/refreshAccessToken', authenticate, async (request, response) => {
   try {
     const uid = request['user'].uid;
     const userDoc = await admin.firestore().collection('users').doc(uid).get();
-    const refreshToken = userDoc.data().spotifyRefreshToken;
-    Spotify.setRefreshToken(refreshToken);
+    const currentRefreshToken = userDoc.data().spotifyRefreshToken;
+    Spotify.setRefreshToken(currentRefreshToken);
     const refreshTokenResponse = await Spotify.refreshAccessToken();
-    const accessToken = refreshTokenResponse.body['access_token'];
-    const newRefreshToken = refreshTokenResponse.body['refresh_token'];
-    const expiresIn = refreshTokenResponse.body['expires_in'];
-    const expireDate = toExpireDate(expiresIn);
+    const token = refreshTokenResponse.body['access_token'];
+    const refreshToken = refreshTokenResponse.body['refresh_token'] || currentRefreshToken;
+    const expireTime = toExpireTime(refreshTokenResponse.body['expires_in']);
     console.log('The access token has been refreshed!');
     await saveSpotifyUserData(uid, {
-      spotifyAccessToken: accessToken,
-      spotifyAccessTokenExpireDate: expireDate,
-      spotifyRefreshToken: newRefreshToken || refreshToken,
+      spotifyAccessToken: token,
+      spotifyAccessTokenExpireTime: expireTime,
+      spotifyRefreshToken: refreshToken,
     });
-    return response.status(200).json({ token: accessToken, expireDate: expireDate });
+    return response.status(200).json({ token });
   } catch (error) {
+    console.error(error);
     return response.status(500).json(NetworkError(500, error.message));
   }
 });
@@ -108,8 +112,7 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
     const authGrantResponse = await Spotify.authorizationCodeGrant(request.query.code);
     const accessToken = authGrantResponse.body['access_token'];
     const refreshToken = authGrantResponse.body['refresh_token'];
-    const expiresIn = authGrantResponse.body['expires_in'];
-    const expireDate = toExpireDate(expiresIn);
+    const expireTime = toExpireTime(authGrantResponse.body['expires_in']);
     console.log('Received Access Token:', accessToken, 'and Refresh Token:', refreshToken);
     Spotify.setAccessToken(accessToken);
 
@@ -145,40 +148,73 @@ app.get('/createSpotifyAccount', cookieParser(), async (request, response) => {
       throw error;
     });
 
+    // Custom auth claims for a spotify user
+    const customClaims = {
+      ...(userRecord && userRecord.customClaims),
+      spotify: true,
+      spotifyPremium: isPremium
+    };
+
+    // We need to assign the custom claims if either the account doesn't have any,
+    // or the account wasn't already designated as a spotify account,
+    // or the premium status of the account has changed
+    const needToAssignClaims = userRecord &&
+      (!userRecord.customClaims ||
+      !userRecord.customClaims.spotify ||
+      isPremium !== userRecord.customClaims.spotifyPremium);
+
     const saveUserTask = (_uid) => {
       return saveSpotifyUserData(_uid, {
         spotifyAccessToken: accessToken,
-        spotifyAccessTokenExpireDate: expireDate,
+        spotifyAccessTokenExpireTime: expireTime,
         spotifyRefreshToken: refreshToken,
         spotifyCountry: country
       });
     };
 
-    const createTokenTask = (_uid) => {
-      return admin.auth().createCustomToken(_uid, { spotify: true, spotifyPremium: isPremium });
+    const assignClaimsTask = (_uid) => {
+      return admin.auth().setCustomUserClaims(_uid, customClaims);
     }
+
+    const createTokenTask = (_uid) => {
+      return admin.auth().createCustomToken(_uid, customClaims);
+    }
+
+    // The custom token the user will sign in with
+    let token;
+
+    // Gotta extract this from the 'if' statements to appease the Typescript Gods
+    let tasks;
 
     // Different account with this email exists.
     // We'll assign the tokens and claims to that user and sign them in.
     if (userRecord && userRecord.uid !== uid) {
       uid = userRecord.uid;
-      const [token] = await Promise.all([createTokenTask(uid), saveUserTask(uid)]);
-      return response.status(200).json({ token: token, providers: userRecord.providerData });
+      tasks = [createTokenTask(uid), saveUserTask(uid)];
+      if (needToAssignClaims) tasks.push(assignClaimsTask(uid));
+      [token] = await Promise.all(tasks);
+      return response.status(200).json({ token, providers: userRecord.providerData });
     }
 
-    // At this point the user either doesn't exist, or is a returning spotify user
-
-    const createOrUpdateUserTask = async (_uid) => {
-      userRecord ? await admin.auth().updateUser(_uid, userInfo) : await admin.auth().createUser({ uid: _uid, ...userInfo });
-      return createTokenTask(uid);
-    };
-
-    const [firebaseToken] = await Promise.all([createOrUpdateUserTask(uid), saveUserTask(uid)]);
-
-    // Return the custom token the client can sign in with
-    return response.status(200).json({ token: firebaseToken });
+    // Returning spotify account
+    if (userRecord) {
+      const updateUserTask = async (_uid) => {
+        tasks = [admin.auth().updateUser(_uid, userInfo)];
+        if (needToAssignClaims) tasks.push(assignClaimsTask(_uid));
+        await Promise.all(tasks);
+        return createTokenTask(_uid);
+      }
+      [token] = await Promise.all([updateUserTask(uid), saveUserTask(uid)]);
+      return response.status(200).json({ token });
+    }
+    
+    // Create new spotify account
+    await admin.auth().createUser({ uid, ...userInfo });
+    [token] = await Promise.all([assignClaimsTask(uid), createTokenTask(uid), saveUserTask(uid)]);
+    return response.status(200).json({ token });
   } catch (error) {
     // todo: better error handling here
+    console.error(error);
     return response.status(500).json(NetworkError(500, error.message));
   }
 });
@@ -204,8 +240,9 @@ function saveSpotifyUserData(uid, data) {
 
 // Util functions
 
-function toExpireDate(expiresIn) {
-  return new Date(Date.now() + expiresIn * 1000);
+function toExpireTime(expiresIn) {
+  const now = admin.firestore.Timestamp.now();
+  return new admin.firestore.Timestamp(now.seconds + expiresIn, now.nanoseconds);
 }
 
 function NetworkError(status, message) {

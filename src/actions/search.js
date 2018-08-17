@@ -1,36 +1,43 @@
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
-//import { encodeQuery, searchForTracks } from '../spotify/spotify-api.js';
+import { noParallel } from '../util/no-parallel.js';
+import { firestore, FieldValue } from '../firebase/firebase.js';
+import { parseDoc, doBatchedAction } from '../firebase/firebase-utils.js';
 
-import { getClientToken } from './tokens.js';
+import { getClientToken, getAccessToken } from './tokens.js';
 import { replaceLocationURL } from './app.js';
 import { requestedQuerySelector } from '../reducers/search.js';
+import { spotifyAccountSelector, userSelector } from '../reducers/auth.js';
+import { partyDataSelector, currentPartySelector } from '../reducers/party.js';
 
-export const REQUEST_TRACKS = 'REQUEST_TRACKS';
-export const RECEIVE_TRACKS = 'RECEIVE_TRACKS';
-export const FAIL_TRACKS = 'FAIL_TRACKS';
+export const SET_QUERY = 'SET_QUERY';
+export const REQUEST_SEARCH_TRACKS = 'REQUEST_SEARCH_TRACKS';
+export const RECEIVE_SEARCH_TRACKS = 'RECEIVE_SEARCH_TRACKS';
+export const FAIL_SEARCH_TRACKS = 'FAIL_SEARCH_TRACKS';
 
-export const ADD_TRACK_TO_QUEUE = 'ADD_TRACK_TO_QUEUE';
+const SEARCH_LIMIT = 10;
 
-export const setQuery = (query) => (dispatch, getState) => {
+export const setQuery = (query) => (dispatch) => {
+  dispatch({ type: SET_QUERY, query });
   dispatch(replaceLocationURL(`/search${query && '?q=' + query}`));
 };
 
 let debounceSearchJob, controller, signal;
-export const searchTracks = (query) => (dispatch, getState) => {
+export const searchTracks = (query) => async (dispatch, getState) => {
   if (!query || !query.length) return;
   debounceSearchJob = Debouncer.debounce(debounceSearchJob, timeOut.after(300), async () => {
     query = encodeQuery(query);
-    if (previousQuery(getState()) === query) return;
+    let previousQuery = requestedQuerySelector(getState());
+    if (previousQuery === query) return;
     if (controller) controller.abort();
     controller = new AbortController();
     signal = controller.signal;
-    dispatch(requestTracks(query));
-    const token = await dispatch(getClientToken());
-    //const market = getState().party.country;
-    let market = 'US'; let limit = '10';
+    dispatch(requestSearchTracks(query));
+    const token = spotifyAccountSelector(getState()).linked ?
+      await dispatch(getAccessToken()) : await dispatch(getClientToken());
+    const market = partyDataSelector(getState()).country;
     try {
-      const response = await fetch(`https://api.spotify.com/v1/search?q=${query}&limit=${limit}&type=track&best_match=true${market ? `&market=${market}` : ''}`, {
+      const response = await fetch(`https://api.spotify.com/v1/search?q=${query}&limit=${SEARCH_LIMIT}&type=track&best_match=true${market ? `&market=${market}` : ''}`, {
         signal,
         headers: {
           Authorization: `Bearer ${token}`
@@ -38,21 +45,18 @@ export const searchTracks = (query) => (dispatch, getState) => {
       });
       const repsonseData = await response.json();
       const tracks = repsonseData.tracks.items;
-
-      if (previousQuery(getState()) === query) {
-        dispatch(receiveTracks(tracks));
+      
+      previousQuery = requestedQuerySelector(getState());
+      if (previousQuery === query) {
+        dispatch(receiveSearchTracks(tracks));
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
-        dispatch(failTracks());
+        dispatch(failSearchTracks());
       }
+      console.log(error);
     }
-    //const tracks = await searchForTracks(query, this.party && this.party.country);
   });
-};
-
-const previousQuery = (state) => {
-  return requestedQuerySelector(state);
 };
 
 const encodeQuery = (query) => {
@@ -65,27 +69,60 @@ const encodeQuery = (query) => {
   return query;
 };
 
-const requestTracks = (query) => {
+const requestSearchTracks = (query) => {
   return {
-    type: REQUEST_TRACKS,
+    type: REQUEST_SEARCH_TRACKS,
     query
   };
 };
 
-const receiveTracks = (tracks) => {
+const receiveSearchTracks = (results) => {
   return {
-    type: RECEIVE_TRACKS,
-    tracks
+    type: RECEIVE_SEARCH_TRACKS,
+    results
   };
 };
 
-const failTracks = (query) => {
+const failSearchTracks = (query) => {
   return {
-    type: FAIL_TRACKS,
+    type: FAIL_SEARCH_TRACKS,
     query
   };
 };
 
-export const addTrackToQueue = () => {
+const _addTrackToQueue = async (id, batch, dispatch, getState) => {
+  await doBatchedAction(batch, async (batch) => {
+    const state = getState();
+    const existingTrack = await getQueueTrack(id, state);
+    if (existingTrack) throw new Error('This track is already in the queue');
+    const timestamp = FieldValue.serverTimestamp();
+    let timeFirstTrackAdded = timestamp;
+    const member = await getPartyMemberData(state);
+    const numTracksAdded = member.numTracksAdded + 1;
+    const memberDocUpdate = { numTracksAdded };
+    numTracksAdded === 1 ? memberDocUpdate.timeFirstTrackAdded = timestamp :
+      timeFirstTrackAdded = member.timeFirstTrackAdded;
+    const currentUser = userSelector(state);
+    const currentParty = currentPartySelector(state);
+    batch.update(firestore.collection('parties').doc(currentParty).collection('members').doc(currentUser.id), memberDocUpdate);
+    batch.set(firestore.collection('parties').doc(currentParty).collection('tracks').doc(id), {
+      submitterId: currentUser.id,
+      submitterName: currentUser.displayName,
+      trackNumber: numTracksAdded,
+      memberOrderStamp: timeFirstTrackAdded,
+      timestamp
+    });
+  });
+};
+const __addTrackToQueue = noParallel(_addTrackToQueue);
+export const addTrackToQueue = (id, batch) => (dispatch, getState) => {
+  __addTrackToQueue(id, batch, dispatch, getState);
+};
 
+const getQueueTrack = async (id, state) => {
+  return parseDoc(await firestore.collection('parties').doc(currentPartySelector(state)).collection('tracks').doc(id).get());
+};
+
+const getPartyMemberData = async (state) => {
+  return parseDoc(await firestore.collection('parties').doc(currentPartySelector(state)).collection('members').doc(userSelector(state).id).get());
 };

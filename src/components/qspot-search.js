@@ -20,15 +20,10 @@ import { store } from '../store.js';
 import { setQuery, searchTracks, addTrackToQueue } from '../actions/search.js';
 
 // We are lazy loading its reducer.
-import search from '../reducers/search.js';
-import tokens from '../reducers/tokens.js';
+import search, { searchResultsSelector } from '../reducers/search.js';
 store.addReducers({
   search,
-  tokens
 });
-
-// These are the elements needed by this element.
-import './counter-element.js';
 
 // These are the shared styles needed by this element.
 import { SharedStyles } from './shared-styles.js';
@@ -48,8 +43,8 @@ class QspotSearch extends connect(store)(PageViewElement) {
           <ul on-click="${(e) => this._handleAddTrack(e)}">
             ${repeat(_tracks, (track) => track.id, (track) => html`
             <li>
-              <button data-trackId$="${track.id}">Add track</button>
-              ${track.name} - ${track.artists[0].name}
+              <button data-track-id$="${track.id}">Add track</button>
+              ${track.name} - ${track.artists.reduce((str, artist, index) => str + (index === 0 ? artist.name : ', ' + artist.name), '')}
             </li>`)}
           </ul>
         </p>
@@ -64,22 +59,15 @@ class QspotSearch extends connect(store)(PageViewElement) {
     };
   }
 
-  _didRender({ _query }, changeList) {
-    if ('_query' in changeList) {
-      store.dispatch(searchTracks(_query));
-    }
-  }
-
   // This is called every time something is updated in the store.
   _stateChanged(state) {
     this._query = state.search.query;
-    this._tracks = state.search.tracks || [];
+    this._tracks = searchResultsSelector(state);
   }
 
-  _handleAddTrack(e) {
-    const path = e.composedPath();
-    const trackId = path[0].dataset.trackId;
-    //store.dispatch(addTrackToQueue(trackId));
+  _handleAddTrack(event) {
+    const trackId = event.composedPath()[0].dataset.trackId;
+    trackId && store.dispatch(addTrackToQueue(trackId));
   }
 }
 

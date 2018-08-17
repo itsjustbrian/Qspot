@@ -1,5 +1,4 @@
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
 export function randomLetters(numLetters) {
   let letters = '';
   for (let i = 0; i < numLetters; i++) {

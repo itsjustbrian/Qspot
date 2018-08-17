@@ -7,6 +7,7 @@ service-account.json
 functions/lib
 function/etc
 firebase-config.js
+tsconfig.json
 *.log
 .vscode
 .DS_Store

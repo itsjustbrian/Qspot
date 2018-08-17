@@ -113,9 +113,10 @@ export async function joinParty(userId, partyId, batch) {
       currentParty: partyId
     });
 
-    // If we've already seen this member, we don't want to reset the number of tracks they've added.
     const memberRef = db().collection('parties').doc(partyId).collection('members').doc(userId);
     const memberDoc = await getMember(userId, partyId, true);
+    
+    // If we've already seen this member, we don't want to reset the number of tracks they've added.
     if (memberDoc.exists) {
       batch.update(memberRef, { active: true });
     } else {

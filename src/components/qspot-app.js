@@ -1,13 +1,3 @@
-/**
-@license
-Copyright (c) 2018 The Polymer Project Authors. All rights reserved.
-This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
-The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
-The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
-Code distributed by Google as part of the polymer project is also
-subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
-*/
-
 import { LitElement, html } from '@polymer/lit-element';
 import { connect } from 'pwa-helpers/connect-mixin.js';
 import { installMediaQueryWatcher } from 'pwa-helpers/media-query.js';
@@ -19,11 +9,8 @@ import { updateMetadata } from 'pwa-helpers/metadata.js';
 import { store } from '../store.js';
 
 // These are the actions needed by this element.
-import { updateLocation, updateOffline, updateLayout } from '../actions/app.js';
-import { attachAuthListener, attachUserDataListener, signIn, signOut } from '../actions/auth.js';
-
-import { accountIcon } from '../icons/qspot-icons.js';
-import './snack-bar.js';
+import { updateLocation, updateOffline, updateLayout, pushLocationURL } from '../actions/app.js';
+import { getUser, signOut } from '../actions/auth.js';
 
 class QspotApp extends connect(store)(LitElement) {
   _render({
@@ -32,8 +19,10 @@ class QspotApp extends connect(store)(LitElement) {
     _query,
     _snackbarOpened,
     _offline,
+    _lazyResourcesLoaded,
+    _user,
     _authInitialized,
-    _user
+    _authorizing
   }) {
     return html`
     <style>
@@ -51,6 +40,14 @@ class QspotApp extends connect(store)(LitElement) {
       }
 
       .signin-btn {
+        visibility: hidden;
+      }
+
+      .signin-btn[visible] {
+        visibility: visible;
+      }
+
+      .account-btn {
         display: inline-block;
         width: 40px;
         height: 40px;
@@ -63,16 +60,16 @@ class QspotApp extends connect(store)(LitElement) {
         text-decoration: none;
       }
 
-      .signin-btn {
+      .account-btn {
         padding: 2px;
         visibility: hidden;
       }
 
-      .signin-btn[visible] {
+      .account-btn[visible] {
         visibility: visible;
       }
 
-      .signin-btn > img {
+      .account-btn > img {
         width: 36px;
         height: 36px;
         border-radius: 50%;
@@ -124,29 +121,31 @@ class QspotApp extends connect(store)(LitElement) {
     <header>
       <h1>${appTitle}</h1>
       <nav class="toolbar-list">
-        <a selected?="${_page === 'login'}" href="/login">Login</a>|
-        <a selected?="${_page === 'search'}" href="${`/search${_query && '?q=' + _query}`}">Search</a>|
         <a selected?="${_page === 'queue'}" href="/queue">Queue</a>|
-        <a selected?="${_page === 'party'}" href="/party">Party</a>
+        <a selected?="${_page === 'search'}" href="${`/search${_query ? '?q=' + _query : ''}`}">Search</a>|
+        <a selected?="${_page === 'party'}" href="/party">Party</a>|
+        <a selected?="${_page === 'join'}" href="/join">Join</a>|
+        <a selected?="${_page === 'login'}" href="/login">Login</a>
       </nav>
     </header>
 
-    <button class="signin-btn" aria-label="Sign In" visible?="${_authInitialized}"
-        on-click="${() => store.dispatch(_user && _user.imageUrl ? signOut() : signIn())}">
-      ${_user && _user.imageUrl ? html`<img src="${_user.imageUrl}">` : accountIcon}
+    <button class="signin-btn" aria-label="Sign in" visible?="${_authInitialized && !_user}"
+        on-click="${() => store.dispatch(pushLocationURL('/login'))}">
+      SIGN IN
     </button>
-      ${/*<input id="party-code-input"></input>
-      <button on-click="${(e) => this._handleJoinParty(e)}">Join party</button>
-      <button on-click="${() => store.dispatch(startParty())}">Start Party</button>
-      <button on-click="${() => store.dispatch(createParty())}">Create Party</button>
-    <button on-click="${() => store.dispatch(listenIn())}">Listen in</button>*/null}
+    <button class="account-btn" aria-label="Account" visible?="${_authInitialized && _user}"
+        on-click="${() => store.dispatch(signOut())}">
+      <img src="${_user && _user.photoURL}">
+    </button>
+    ${_authorizing ? html`<span>Signing in...</span>` : null}
 
     <!-- Main content -->
     <main role="main" class="main-content">
-      <qspot-login class="page" active?="${_page === 'login'}"></qspot-login>
-      <qspot-search class="page" active?="${_page === 'search'}"></qspot-search>
       <qspot-queue class="page" active?="${_page === 'queue'}"></qspot-queue>
+      <qspot-search class="page" active?="${_page === 'search'}"></qspot-search>
       <qspot-party class="page" active?="${_page === 'party'}"></qspot-party>
+      <qspot-join class="page" active?="${_page === 'join'}"></qspot-join>
+      <qspot-login class="page" active?="${_page === 'login'}"></qspot-login>
       <qspot-404 class="page" active?="${_page === '404'}"></qspot-404>
     </main>
 
@@ -154,8 +153,10 @@ class QspotApp extends connect(store)(LitElement) {
       <p>Made with &hearts; by the Polymer team.</p>
     </footer>
 
-    <snack-bar active?="${_snackbarOpened}">
-        You are now ${_offline ? 'offline' : 'online'}.</snack-bar>
+    ${_lazyResourcesLoaded ? html`
+      <snack-bar active?="${_snackbarOpened}">
+        You are now ${_offline ? 'offline' : 'online'}.
+      </snack-bar>` : null}
     `;
   }
 
@@ -166,8 +167,10 @@ class QspotApp extends connect(store)(LitElement) {
       _query: String,
       _snackbarOpened: Boolean,
       _offline: Boolean,
+      _lazyResourcesLoaded: Boolean,
       _user: Object,
-      _authInitialized: Boolean
+      _authInitialized: Boolean,
+      _authorizing: Boolean
     };
   }
 
@@ -176,22 +179,17 @@ class QspotApp extends connect(store)(LitElement) {
     installOfflineWatcher((offline) => store.dispatch(updateOffline(offline)));
     installMediaQueryWatcher('(min-width: 460px)', (matches) => store.dispatch(updateLayout(matches)));
     this.removeAttribute('unresolved');
-    this._partyCodeInput = this.shadowRoot.getElementById('party-code-input');
-    store.dispatch(attachAuthListener());
+    store.dispatch(getUser());
   }
 
-  _didRender({ appTitle, _user }, changeList, prevProps) {
+  _didRender({ appTitle }, changeList) {
     if ('_page' in changeList) {
-      const pageTitle = appTitle + ' - ' + changeList._page;
+      const pageTitle = appTitle + (changeList._page ? ' - ' + changeList._page : '');
       updateMetadata({
         title: pageTitle,
         description: pageTitle
         // This object also takes an image property, that points to an img src.
       });
-    }
-
-    if ('_user' in changeList && _user && !prevProps._user) {
-      store.dispatch(attachUserDataListener(_user.id));
     }
   }
 
@@ -200,12 +198,10 @@ class QspotApp extends connect(store)(LitElement) {
     this._query = state.search && state.search.query;
     this._offline = state.app.offline;
     this._snackbarOpened = state.app.snackbarOpened;
-    this._authInitialized = state.auth.initialized;
+    this._lazyResourcesLoaded = state.app.lazyResourcesLoaded;
     this._user = state.auth.user;
-  }
-
-  _handleJoinParty(e) {
-    store.dispatch(joinParty(this._partyCodeInput.value));
+    this._authInitialized = state.auth.initialized;
+    this._authorizing = state.auth.authorizing;
   }
 }
 

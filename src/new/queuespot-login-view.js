@@ -36,15 +36,7 @@ class QueuespotLoginView extends QueuespotElement {
     `;
   }
 
-  _didRender(props, changedProps, prevProps) {
-
-    if (this.route && this.route.params.get('state')) {
-      this.createSpotifyAccount();
-    }
-  }
-
   signInToSpotify(event) {
-    // Need to change this url in build proccess
     window.location.href = `${API_URL}/spotifyAuthRedirect`;
   }
 
