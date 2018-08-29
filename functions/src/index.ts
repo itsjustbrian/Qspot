@@ -21,7 +21,7 @@ const APP_URL = PRODUCTION_ENV ? `https://${process.env.GCLOUD_PROJECT}.firebase
 const SPOTIFY_CLIENT_ID = functions.config().spotify.client_id;
 const SPOTIFY_CLIENT_SECRET = functions.config().spotify.client_secret;
 const SPOTIFY_AUTH_REDIRECT_URI = `${APP_URL}/authorize_spotify`;
-const OAUTH_SCOPES = ["streaming", "user-read-birthdate", "user-read-email", "user-read-private"];
+const OAUTH_SCOPES = ["streaming", "user-read-birthdate", "user-read-email", "user-read-private", "user-read-playback-state"];
 
 const CORS_OPTIONS = {
   origin: APP_URL,

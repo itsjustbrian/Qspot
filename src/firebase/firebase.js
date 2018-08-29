@@ -1,7 +1,7 @@
 import { loadScripts } from '../util/script-loader.js';
 import { config } from './firebase-config.js';
 
-const FIREBASE_VERSION = '4.13.0';
+const FIREBASE_VERSION = '5.3.1';
 
 export let firebase;
 export let firestore;

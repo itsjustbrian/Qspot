@@ -2,9 +2,11 @@ import { firestore } from '../firebase/firebase.js';
 import { parseSnapshot } from '../firebase/firebase-utils.js';
 import { getTrack } from './track.js';
 import { currentPartySelector } from '../reducers/party.js';
+import { queueItemsListSelector, queueTracksDataSelector } from '../reducers/queue.js';
 
 export const RECEIVE_QUEUE = 'RECEIVE_QUEUE';
-export const RECEIVE_QUEUE_TRACK_DATA = 'RECEIVE_QUEUE_TRACK_DATA';
+
+export const QUEUE_ORIGIN = 'QUEUE_ORIGIN';
 
 let queueListener, queuePromise;
 export const attachQueueListener = () => (dispatch, getState) => {
@@ -13,14 +15,21 @@ export const attachQueueListener = () => (dispatch, getState) => {
     queueListener = firestore.collection(`parties/${currentParty}/tracks`).orderBy('trackNumber').orderBy('memberOrderStamp').onSnapshot((queueSnapshot) => {
       const queueItems = parseSnapshot(queueSnapshot);
       dispatch(receiveQueue(queueItems));
-      for (let item of queueItems) {
-        dispatch(getTrack(item.id));
-      }
+      dispatch(getQueueTrackData());
       resolve();
     });
   }));
 };
-export const detachQueueListener = () => queueListener && (queueListener(), queuePromise = null);
+export const detachQueueListener = () => queueListener && (queueListener(), queuePromise = queueListener = null);
+
+const getQueueTrackData = () => (dispatch, getState) => {
+  const state = getState();
+  const items = queueItemsListSelector(state);
+  const trackData = queueTracksDataSelector(state);
+  for (let id of items) {
+    if (!trackData[id]) dispatch(getTrack(id, QUEUE_ORIGIN));
+  }
+};
 
 const receiveQueue = (items) => {
   return {

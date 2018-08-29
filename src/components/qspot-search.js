@@ -21,8 +21,9 @@ import { setQuery, searchTracks, addTrackToQueue } from '../actions/search.js';
 
 // We are lazy loading its reducer.
 import search, { searchResultsSelector } from '../reducers/search.js';
+import player from '../reducers/player.js';
 store.addReducers({
-  search,
+  search, player
 });
 
 // These are the shared styles needed by this element.

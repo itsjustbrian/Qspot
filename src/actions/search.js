@@ -1,3 +1,4 @@
+import { formatUrl } from '../util/url-formatter.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { noParallel } from '../util/no-parallel.js';
@@ -37,7 +38,13 @@ export const searchTracks = (query) => async (dispatch, getState) => {
       await dispatch(getAccessToken()) : await dispatch(getClientToken());
     const market = partyDataSelector(getState()).country;
     try {
-      const response = await fetch(`https://api.spotify.com/v1/search?q=${query}&limit=${SEARCH_LIMIT}&type=track&best_match=true${market ? `&market=${market}` : ''}`, {
+      const response = await fetch(formatUrl('https://api.spotify.com/v1/search', {
+        q: query,
+        limit: SEARCH_LIMIT,
+        type: 'track',
+        best_match: 'true',
+        market
+      }), {
         signal,
         headers: {
           Authorization: `Bearer ${token}`

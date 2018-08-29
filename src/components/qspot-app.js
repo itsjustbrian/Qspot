@@ -123,7 +123,7 @@ class QspotApp extends connect(store)(LitElement) {
       <nav class="toolbar-list">
         <a selected?="${_page === 'queue'}" href="/queue">Queue</a>|
         <a selected?="${_page === 'search'}" href="${`/search${_query ? '?q=' + _query : ''}`}">Search</a>|
-        <a selected?="${_page === 'party'}" href="/party">Party</a>|
+        <a selected?="${_page === 'my-tracks'}" href="/my-tracks">My Tracks</a>|
         <a selected?="${_page === 'join'}" href="/join">Join</a>|
         <a selected?="${_page === 'login'}" href="/login">Login</a>
       </nav>
@@ -143,7 +143,7 @@ class QspotApp extends connect(store)(LitElement) {
     <main role="main" class="main-content">
       <qspot-queue class="page" active?="${_page === 'queue'}"></qspot-queue>
       <qspot-search class="page" active?="${_page === 'search'}"></qspot-search>
-      <qspot-party class="page" active?="${_page === 'party'}"></qspot-party>
+      <qspot-my-tracks class="page" active?="${_page === 'my-tracks'}"></qspot-my-tracks>
       <qspot-join class="page" active?="${_page === 'join'}"></qspot-join>
       <qspot-login class="page" active?="${_page === 'login'}"></qspot-login>
       <qspot-404 class="page" active?="${_page === '404'}"></qspot-404>

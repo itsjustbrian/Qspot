@@ -1,5 +1,6 @@
 import { createSpotifyAccount, resolveAuthorizing } from './auth.js';
 import { getCurrentParty } from './party.js';
+import { setupPlayer } from './player.js';
 
 export const UPDATE_LOCATION = 'UPDATE_LOCATION';
 export const RECEIVE_LAZY_RESOURCES = 'RECEIVE_LAZY_RESOURCES';
@@ -23,10 +24,16 @@ export const loadPage = (module) => async (dispatch, getState) => {
     case 'queue':
       await dispatch(getCurrentParty());
       await dispatch(module.attachQueueListener());
+      await dispatch(setupPlayer());
       break;
     case 'search':
       await dispatch(getCurrentParty());
       await dispatch(module.searchTracks(query));
+      await dispatch(setupPlayer());
+      break;
+    case 'my-tracks':
+      await dispatch(module.loadMyTracks());
+      await dispatch(setupPlayer());
       break;
   }
 };
@@ -46,8 +53,8 @@ export const updateLocation = (location) => async (dispatch, getState) => {
     case 'search':
       pageImport = import('../components/qspot-search.js');
       break;
-    case 'party':
-      pageImport = import('../components/qspot-party.js');
+    case 'my-tracks':
+      pageImport = import('../components/qspot-my-tracks.js');
       break;
     case 'join':
       pageImport = import('../components/qspot-join.js');

@@ -1,2 +1,6 @@
 export const formatUrl = (urlStr, params) => urlStr + '?' +
-  new URLSearchParams(_.pickBy(params, _.negate(_.isNil))).toString();
+  new URLSearchParams(Object.keys(params).reduce((obj, key) => {
+    params[key] != null && (obj[key] = params[key]);
+    return obj;
+  }, {})).toString();
+

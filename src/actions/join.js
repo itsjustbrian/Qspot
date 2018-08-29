@@ -27,15 +27,12 @@ export const joinParty = (id, batch) => async (dispatch, getState) => {
       const isMember = !!await getPartyMemberData(id, state);
 
       // If we've already seen this member, we don't want to reset the number of tracks they've added.
-      if (isMember) {
-        batch.update(memberRef, { active: true });
-      } else {
+      isMember ? batch.update(memberRef, { active: true }) :
         batch.set(memberRef, {
           numTracksAdded: 0,
           numTracksPlayed: 0,
           active: true
         });
-      }
     });
   } catch (error) {
     return dispatch(failJoinParty());

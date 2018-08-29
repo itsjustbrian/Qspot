@@ -5,11 +5,13 @@ import { SET_USER } from '../actions/auth.js';
 
 const party = (state = {}, action) => {
   switch (action.type) {
-    case RECEIVE_PARTY:
+    case RECEIVE_PARTY: {
+      const { code, country, host } = action.item || {};
       return {
         ...state,
-        item: action.item
+        item: action.item && { code, country, host }
       };
+    }
     case SET_USER: {
       const currentParty = action.user && action.user.currentParty;
       return {
@@ -26,6 +28,7 @@ const party = (state = {}, action) => {
 export default party;
 
 export const currentPartySelector = state => state.party.id;
+export const isHostSelector = state => (state.party.item && state.party.item.host) === (state.auth.user && state.auth.user.id);
 export const partyDataSelector = state => state.party.item;
 export const currentUserIsHostSelector = createSelector(
   partyDataSelector,

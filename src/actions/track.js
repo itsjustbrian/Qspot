@@ -1,18 +1,16 @@
 import { getAccessToken, getClientToken } from './tokens';
-import { searchTrackDataSelector } from '../reducers/search';
-import { queueTrackDataSelector } from '../reducers/queue';
 import { spotifyAccountSelector } from '../reducers/auth';
 
-export const REQUEST_TRACK = 'REQUEST_TRACK';
 export const RECEIVE_TRACK = 'RECEIVE_TRACK';
 export const FAIL_TRACK = 'FAIL_TRACK';
 
-export const getTrack = (id) => async (dispatch, getState) => {
-  dispatch(requestTrack(id));
+export const getTrack = (id, origin) => async (dispatch, getState) => {
   const state = getState();
-  let track = searchTrackDataSelector(state)[id] || queueTrackDataSelector(state)[id];
+  let track = state.search && state.search.trackDataById && state.search.trackDataById[id] ||
+    state.queue && state.queue.trackDataById && state.queue.trackDataById[id] ||
+    state.myTracks && state.myTracks.trackDataById && state.myTracks.trackDataById[id];
   if (track) {
-    dispatch(receiveTrack(id, track));
+    dispatch(receiveTrack(id, track, origin));
     return;
   }
   const token = spotifyAccountSelector(state).linked ?
@@ -24,30 +22,25 @@ export const getTrack = (id) => async (dispatch, getState) => {
       }
     });
     track = await response.json();
-    dispatch(receiveTrack(id, track));
+    dispatch(receiveTrack(id, track, origin));
   } catch (error) {
-    dispatch(failTrack(id));
+    dispatch(failTrack(id, origin));
   }
 };
 
-const requestTrack = (id) => {
-  return {
-    type: REQUEST_TRACK,
-    id
-  };
-};
-
-const receiveTrack = (id, track) => {
+const receiveTrack = (id, track, origin) => {
   return {
     type: RECEIVE_TRACK,
+    origin,
     id,
     track
   };
 };
 
-const failTrack = (id) => {
+const failTrack = (id, origin) => {
   return {
     type: FAIL_TRACK,
+    origin,
     id
   };
 };

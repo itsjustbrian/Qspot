@@ -9,16 +9,17 @@ export const getCurrentParty = () => async (dispatch, getState) => {
   await userLoaded();
   const state = getState();
   const currentParty = currentPartySelector(state);
+  if (!currentParty) return null;
   let partyData = partyDataSelector(state);
-  if (partyData) return;
+  if (partyData) return partyData;
   partyData = parseDoc(await firestore.collection('parties').doc(currentParty).get());
-  if (partyData) dispatch(receiveParty(partyData.id, partyData));
+  dispatch(receiveParty(partyData));
+  return partyData;
 };
 
-const receiveParty = (id, item) => {
+const receiveParty = (item) => {
   return {
     type: RECEIVE_PARTY,
-    id,
     item
   };
 };

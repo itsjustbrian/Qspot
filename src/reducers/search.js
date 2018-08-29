@@ -43,11 +43,11 @@ const search = (state = {}, action) => {
 export default search;
 
 export const requestedQuerySelector = state => state.search.requestedQuery;
-export const searchTrackDataSelector = state => (state.search && state.search.trackDataById) || {};
+export const searchTracksDataSelector = state => (state.search && state.search.trackDataById) || {};
 export const resultsListSelector = state => (state.search && state.search.resultsList) || [];
 
 export const searchResultsSelector = createSelector(
   resultsListSelector,
-  searchTrackDataSelector,
+  searchTracksDataSelector,
   (resultsList, trackDataById) => resultsList.map((id) => ({ id, ...trackDataById[id] }))
 );

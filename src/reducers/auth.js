@@ -24,7 +24,8 @@ const auth = (state = { spotify: {} }, action) => {
           id: user.id,
           displayName: user.displayName,
           email: user.email,
-          photoURL: user.photoURL
+          photoURL: user.photoURL,
+          qspotActiveDeviceId: user.activeDeviceId
         },
         initialized: true,
         authorizing: false,
@@ -207,6 +208,7 @@ export default auth;
 
 export const userSelector = state => state.auth.user;
 export const spotifyAccountSelector = state => state.auth.spotify;
-export const spotifyClientTokenSelector = state => state.auth.spotify.tokens.client;
-export const spotifyAccessTokenSelector = state => state.auth.spotify.tokens.access;
+export const spotifyClientTokenSelector = state => state.auth.spotify.tokens && state.auth.spotify.tokens.client;
+export const spotifyAccessTokenSelector = state => state.auth.spotify.tokens && state.auth.spotify.tokens.access;
 export const spotifyLoginSelector = state => state.auth.spotify.login;
+export const isListeningToPartySelector = state => state.auth.user && state.auth.user.isListeningToParty;
