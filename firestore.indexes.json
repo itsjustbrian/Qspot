@@ -1,0 +1,18 @@
+{
+  "indexes": [
+    {
+      "collectionId": "tracks",
+      "fields": [
+        { "fieldPath": "trackNumber", "mode": "ASCENDING" },
+        { "fieldPath": "memberOrderStamp", "mode": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionId": "tracks",
+      "fields": [
+        { "fieldPath": "submitterId", "mode": "ASCENDING" },
+        { "fieldPath": "timestamp", "mode": "ASCENDING" }
+      ]
+    }
+  ]
+}

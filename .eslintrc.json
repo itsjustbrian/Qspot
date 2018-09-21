@@ -6,12 +6,22 @@
     "extends": "eslint:recommended",
     "parserOptions": {
         "sourceType": "module",
-        "ecmaVersion": 8
+        "ecmaVersion": 8,
+        "ecmaFeatures": {
+            "experimentalObjectRestSpread": true
+        }
+    },
+    "globals": {
+        "firebase": true,
+        "Spotify": true
     },
     "rules": {
         "indent": [
             "error",
-            2
+            2,
+            {
+                "SwitchCase": 1
+            }
         ],
         "linebreak-style": [
             "error",
