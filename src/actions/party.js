@@ -1,7 +1,8 @@
-import { firestore } from '../firebase/firebase.js';
-import { parseDoc } from '../firebase/firebase-utils.js';
-import { partyDataSelector, currentPartySelector } from '../reducers/party.js';
+import { firestore, FieldValue } from '../firebase/firebase.js';
+import { parseDoc, doBatchedAction } from '../firebase/firebase-utils.js';
 import { userLoaded } from './auth.js';
+import { partyDataSelector, currentPartySelector } from '../reducers/party.js';
+import { userSelector } from '../reducers/auth.js';
 
 export const RECEIVE_PARTY = 'RECEIVE_PARTY';
 
@@ -15,6 +16,22 @@ export const getCurrentParty = () => async (dispatch, getState) => {
   partyData = parseDoc(await firestore.collection('parties').doc(currentParty).get());
   dispatch(receiveParty(partyData));
   return partyData;
+};
+
+export const leaveParty = (batch) => (_, getState) => {
+  const state = getState();
+  const currentUser = userSelector(state);
+  const currentParty = currentPartySelector(state);
+
+  return doBatchedAction(batch, () => {
+    batch.update(firestore.collection('users').doc(currentUser.id), {
+      currentParty: FieldValue.delete()
+    });
+
+    batch.update(firestore.collection('parties').doc(currentParty).collection('members').doc(currentUser.id), {
+      active: false
+    });   
+  });
 };
 
 const receiveParty = (item) => {

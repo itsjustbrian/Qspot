@@ -1,7 +1,7 @@
 import { createSelector } from 'reselect';
 import { userSelector } from './auth.js';
 import { RECEIVE_PARTY } from '../actions/party.js';
-import { SET_USER } from '../actions/auth.js';
+import { RECEIVE_USER_DATA } from '../actions/auth.js';
 
 const party = (state = {}, action) => {
   switch (action.type) {
@@ -12,8 +12,8 @@ const party = (state = {}, action) => {
         item: action.item && { code, country, host }
       };
     }
-    case SET_USER: {
-      const currentParty = action.user && action.user.currentParty;
+    case RECEIVE_USER_DATA: {
+      const currentParty = action.userData.currentParty;
       return {
         ...state,
         id: currentParty,

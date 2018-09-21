@@ -1,4 +1,3 @@
-
 export class Poll {
   constructor(callback, delay, startAfterTimeout = false) {
     this.callback = callback;
@@ -10,7 +9,7 @@ export class Poll {
 
   start() {
     if (!this._started) {
-      this.startAfterTimeout ? (this._timerId = this._timeoutPoll()) : this._poll();
+      this.startAfterTimeout ? this._timeoutPoll() : this._poll();
       this._started = true;
     }
   }
@@ -23,10 +22,10 @@ export class Poll {
 
   async _poll() {
     await this.callback();
-    this._timerId = this._timeoutPoll();
+    this._timeoutPoll();
   }
 
   _timeoutPoll() {
-    return setTimeout(() => this._poll(), this.delay);
+    this._timerId = setTimeout(() => this._poll(), this.delay);
   }
 }

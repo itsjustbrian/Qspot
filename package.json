@@ -1,11 +1,11 @@
 {
-  "name": "pwa-starter-kit",
+  "name": "qspot",
   "version": "0.8.0",
   "contributors": [
-    "The Polymer Authors"
+    "Brian Ferch"
   ],
   "license": "BSD-3-Clause",
-  "repository": "Polymer/pwa-starter-kit",
+  "repository": "fafcrumb/Qspot",
   "scripts": {
     "start": "npm run concurrent-serve",
     "serve": "polymer serve",

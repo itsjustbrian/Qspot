@@ -1,7 +1,7 @@
-import { formatUrl } from '../util/url-formatter.js';
+import { formatUrl } from '../util/fetch-utils.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
-import { noParallel } from '../util/no-parallel.js';
+import { sequentialize } from '../util/promise-utils.js';
 import { firestore, FieldValue } from '../firebase/firebase.js';
 import { parseDoc, doBatchedAction } from '../firebase/firebase-utils.js';
 
@@ -97,7 +97,7 @@ const failSearchTracks = (query) => {
   };
 };
 
-const _addTrackToQueue = async (id, batch, dispatch, getState) => {
+const _addTrackToQueue = sequentialize(async (id, batch, getState) => {
   await doBatchedAction(batch, async (batch) => {
     const state = getState();
     const existingTrack = await getQueueTrack(id, state);
@@ -120,10 +120,9 @@ const _addTrackToQueue = async (id, batch, dispatch, getState) => {
       timestamp
     });
   });
-};
-const __addTrackToQueue = noParallel(_addTrackToQueue);
-export const addTrackToQueue = (id, batch) => (dispatch, getState) => {
-  __addTrackToQueue(id, batch, dispatch, getState);
+});
+export const addTrackToQueue = (id, batch) => (_, getState) => {
+  _addTrackToQueue(id, batch, getState);
 };
 
 const getQueueTrack = async (id, state) => {

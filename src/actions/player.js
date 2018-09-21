@@ -1,17 +1,18 @@
 import { firestore } from '../firebase/firebase.js';
 import { doBatchedAction, parseDoc } from '../firebase/firebase-utils.js';
-import { formatUrl } from '../util/url-formatter.js';
-import { noParallel } from '../util/no-parallel.js';
+import { formatUrl, formatBody } from '../util/fetch-utils.js';
+import { sequentialize } from '../util/promise-utils.js';
 import { store } from '../store.js';
 import { currentPartySelector, isHostSelector } from '../reducers/party.js';
-import { isListeningToPartySelector } from '../reducers/auth.js';
-import { qspotDeviceIsConnectedSelector } from '../reducers/player.js';
+import { isListeningToPartySelector, userSelector } from '../reducers/auth.js';
+import { qspotDeviceIsConnectedSelector, deviceIdSelector, playerActiveSelector } from '../reducers/player.js';
 import { getAccessToken } from './tokens.js';
 
 export const PLAYER_CREATED = 'PLAYER_CREATED';
 export const PLAYER_STATE_CHANGED = 'PLAYER_STATE_CHANGED';
 export const PLAYER_READY = 'PLAYER_READY';
 export const PLAYER_NOT_READY = 'PLAYER_NOT_READY';
+export const PLAYER_CONNECTED = 'PLAYER_CONNECTED';
 export const PLAYER_DISCONNECTED = 'PLAYER_DISCONNECTED';
 export const PLAYER_ERROR = 'PLAYER_ERROR';
 export const PAUSE_PLAYER = 'PAUSE_PLAYER';
@@ -23,28 +24,27 @@ export const GET_CONNECTED_DEVICES = 'GET_CONNECTED_DEVICES';
 
 const LISTENER_ORIGIN = 'LISTENER_ORIGIN';
 
-export const setupPlayer = () => async (dispatch, getState) => {
-  const state = getState();
-  const currentUserIsHost = isHostSelector(state);
-  const listeningToParty = isListeningToPartySelector(state);
-  let deviceConnected = false;
-  if (currentUserIsHost || listeningToParty) {
-    await dispatch(getConnectedDevices());
-    deviceConnected = qspotDeviceIsConnectedSelector(getState());
-  }
+let setupPromise;
+export const setupPlayer = () => (dispatch, getState) => {
+  return setupPromise || (setupPromise = new Promise(async (resolve) => {
+    const state = getState();
+    const currentUserIsHost = isHostSelector(state);
+    const listeningToParty = isListeningToPartySelector(state);
+    let deviceConnected = false;
+    if (currentUserIsHost || listeningToParty) {
+      await dispatch(getConnectedDevices());
+      deviceConnected = qspotDeviceIsConnectedSelector(getState());
+    }
+    if (!currentUserIsHost || deviceConnected) dispatch(attachPlaybackStateListener());
+    if (currentUserIsHost && !deviceConnected) dispatch(attachNextTrackListener());
+    if ((currentUserIsHost || listeningToParty) && !deviceConnected) loadPlayer();
+    resolve();
+  }));
+};
 
-  if (!currentUserIsHost || deviceConnected) {
-    dispatch(attachPlaybackStateListener());
-  }
-
-  if (currentUserIsHost && !deviceConnected) {
-    dispatch(attachNextTrackListener());
-  }
-
-  if ((currentUserIsHost || listeningToParty) && !deviceConnected) {
-    const playerModule = await import('../player/player.js');
-    playerModule.installPlayer(store);
-  }
+const loadPlayer = async () => {
+  const playerModule = await import('../player/player.js');
+  playerModule.installPlayer(store);
 };
 
 let nextTrackListener;
@@ -75,26 +75,19 @@ export const attachPlaybackStateListener = () => (dispatch, getState) => {
       const party = parseDoc(snapshot);
       const playbackState = party && party.playbackState;
       dispatch(playbackStateChanged(playbackState, LISTENER_ORIGIN));
+      resolve();
     });
   }));
 };
 export const detachplaybackListener = () => playbackListener && (playbackListener(), playbackPromise = playbackListener = null);
 
-const _playNextInQueue = async (dispatch, getState) => {
+const _playNextInQueue = sequentialize(async (dispatch, getState) => {
   const state = getState();
   const currentParty = currentPartySelector(state);
-  const deviceId = state.player.deviceId;
   const nextTrack = state.player.nextTrack;
   if (!nextTrack) return console.log('Nothing to play');
 
-  const token = await dispatch(getAccessToken());
-  await fetch(formatUrl('https://api.spotify.com/v1/me/player/play', {
-    device_id: deviceId
-  }), {
-    body: JSON.stringify({ uris: [`spotify:track:${nextTrack.id}`] }),
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  await dispatch(playTrack(nextTrack.id));
   
   await doBatchedAction(null, async (batch) => {
     const member = parseDoc(await firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId).get());
@@ -105,10 +98,50 @@ const _playNextInQueue = async (dispatch, getState) => {
       numTracksPlayed: numTracksPlayed + 1
     });
   });
-};
-const __playNextInQueue = noParallel(_playNextInQueue);
+});
 export const playNextInQueue = () => (dispatch, getState) => {
-  __playNextInQueue(dispatch, getState);
+  _playNextInQueue(dispatch, getState);
+};
+
+export const playTrack = (id, position) => async (dispatch, getState) => {
+  const token = await dispatch(getAccessToken());
+  const deviceId = deviceIdSelector(getState());
+  return fetch(formatUrl('https://api.spotify.com/v1/me/player/play', {
+    device_id: deviceId
+  }), {
+    body: formatBody({
+      uris: [`spotify:track:${id}`],
+      position_ms: position
+    }),
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+};
+
+export const pausePlayer = () => async (dispatch, getState) => {
+  const playerActive = playerActiveSelector(getState());
+  if (playerActive) {
+    dispatch({ type: PAUSE_PLAYER });
+  } else {
+    const token = await dispatch(getAccessToken());
+    return fetch('https://api.spotify.com/v1/me/player/pause', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }
+};
+
+export const resumePlayer = () => async (dispatch, getState) => {
+  const playerActive = playerActiveSelector(getState());
+  if (playerActive) {
+    dispatch({ type: RESUME_PLAYER });
+  } else {
+    const token = await dispatch(getAccessToken());
+    return fetch('https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }
 };
 
 export const getConnectedDevices = () => async (dispatch) => {
@@ -121,8 +154,12 @@ export const getConnectedDevices = () => async (dispatch) => {
   dispatch({ type: GET_CONNECTED_DEVICES, devices });
 };
 
-export const listenToParty = () => (dispatch, getState) => {
-
+export const listenToParty = () => (_, getState) => {
+  const currentUser = userSelector(getState());
+  firestore.collection('users').doc(currentUser.id).update({
+    isListeningToParty: true
+  });
+  loadPlayer();
 };
 
 export const playbackStateChanged = (playbackState, origin) => {
@@ -140,6 +177,3 @@ export const playerError = (type, message) => {
     message
   };
 };
-
-export const pausePlayer = () => ({ type: PAUSE_PLAYER });
-export const resumePlayer = () => ({ type: RESUME_PLAYER });

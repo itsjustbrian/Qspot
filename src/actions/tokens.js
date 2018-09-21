@@ -1,5 +1,6 @@
 import { API_URL } from '../globals/globals.js';
 import { firestore, loadFirestore, Timestamp } from '../firebase/firebase.js';
+import { greaterThan } from '../firebase/firebase-utils.js';
 import { spotifyClientTokenSelector, spotifyAccessTokenSelector } from '../reducers/auth.js';
 import { getAuthIdToken } from './auth.js';
 
@@ -87,7 +88,7 @@ export const getAccessToken = (forceRefresh) => async (dispatch, getState) => {
   
   const tokenRef = spotifyAccessTokenSelector(getState());
   let token = tokenRef.value;
-  if (!token || forceRefresh || Timestamp.now() > tokenRef.expireTime) {
+  if (!token || forceRefresh || greaterThan(Timestamp.now(), tokenRef.expireTime)) {
     newAccessTokenPromise = dispatch(fetchNewAccessToken());
     token = await newAccessTokenPromise;
     newAccessTokenPromise = null;

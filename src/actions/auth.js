@@ -1,11 +1,12 @@
 import { API_URL } from '../new/globals.js';
-import { formatUrl } from '../util/url-formatter.js';
+import { parseDoc } from '../firebase/firebase-utils.js';
+import { formatUrl } from '../util/fetch-utils.js';
 import { loadAuth, firebaseAuth, loadFirestore, firestore } from '../firebase/firebase.js';
 import { replaceLocationURL } from './app.js';
-import { spotifyLoginSelector } from '../reducers/auth.js';
+import { spotifyLoginSelector, userSelector } from '../reducers/auth.js';
 
 export const SET_USER = 'SET_USER';
-
+export const RECEIVE_USER_DATA = 'RECEIVE_USER_DATA';
 export const CREATE_SPOTIFY_ACCOUNT = 'CREATE_SPOTIFY_ACCOUNT';
 export const FAIL_CREATE_SPOTIFY_ACCOUNT = 'FAIL_CREATE_SPOTIFY_ACCOUNT';
 
@@ -42,7 +43,7 @@ export const userLoaded = () => {
 const attachAuthListener = () => (dispatch) => {
   firebaseAuth.onAuthStateChanged(async (user) => {
     if (user) {
-      dispatch(attachUserDataListener(await getUserFromFirebaseUser(user)));
+      dispatch(attachUserDataListener());
     } else {
       dispatch(setUser());
       detachUserDataListener();
@@ -52,21 +53,19 @@ const attachAuthListener = () => (dispatch) => {
 };
 
 let userDataListener;
-const attachUserDataListener = (user) => async (dispatch) => {
+const attachUserDataListener = () => async (dispatch, getState) => {
   await loadFirestore();
-  const userRef = firestore.collection('users').doc(user.id);
+  let currentUser = userSelector(getState());
+  const userRef = firestore.collection('users').doc(currentUser.id);
   userDataListener = userRef.onSnapshot(async (doc) => {
-    const userData = doc.data();
-    if (userData) dispatch(setUser({ ...userData, ...user }));
-    else userRef.set({
-      displayName: user.displayName,
-      email: user.email,
-      photoURL: user.photoURL
-    });
+    const userData = parseDoc(doc);
+    const { displayName, email, photoURL } = currentUser;
+    if (userData) dispatch(receiveUserData(userData));
+    else userRef.set({ displayName, email, photoURL }, { merge: true });
     resolveUserLoaded();
   });
 };
-const detachUserDataListener = () => userDataListener && userDataListener();
+const detachUserDataListener = () => userDataListener && (userDataListener(), userDataListener = null);
 
 export const getAuthIdToken = async (forceRefresh) => {
   await loadAuth();
@@ -117,21 +116,22 @@ export const signOut = () => async (dispatch) => {
 
 const getUserFromFirebaseUser = async (firebaseUser) => {
   const idTokenResult = await firebaseUser.getIdTokenResult();
-  firebaseUser['claims'] = idTokenResult.claims;
-  return {
-    id: firebaseUser.uid,
-    displayName: firebaseUser.displayName,
-    email: firebaseUser.email,
-    photoURL: firebaseUser.photoURL,
-    spotifyAccountLinked: firebaseUser.claims.spotify,
-    isSpotifyPremium: firebaseUser.claims.spotifyPremium
-  };
+  const { spotify, spotifyPremium } = idTokenResult.claims;
+  const { uid: id, displayName, email, photoURL } = firebaseUser;
+  return { id, displayName, email, photoURL, spotify, spotifyPremium };
 };
 
 const setUser = (user) => {
   return {
     type: SET_USER,
     user
+  };
+};
+
+const receiveUserData = (userData) => {
+  return {
+    type: RECEIVE_USER_DATA,
+    userData
   };
 };
 

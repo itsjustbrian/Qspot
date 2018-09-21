@@ -34,18 +34,19 @@ import { pausePlayer, resumePlayer, playNextInQueue, listenToParty } from '../ac
 
 class QspotQueue extends connect(store)(PageViewElement) {
   _render({ _queue, _playbackState }) {
-    const currentTrack = _playbackState && _playbackState.currentTrack;
+    const playbackState = _playbackState || {};
+    const currentTrack = playbackState.currentTrack;
 
     return html`
       ${SharedStyles}
       <section>
         <h2>Queue</h2>
         <p>
-          ${_playbackState && html`
+          ${html`
             <button on-click="${() => store.dispatch(playNextInQueue())}">Start Party</button>
             <button on-click="${() => store.dispatch(listenToParty())}">Listen to Party</button>
-            <button on-click="${() => store.dispatch(_playbackState.paused ? resumePlayer() : pausePlayer())}">
-              ${_playbackState.paused ? 'Play' : 'Pause'}
+            <button on-click="${() => store.dispatch(playbackState.paused ? resumePlayer() : pausePlayer())}">
+              ${playbackState.paused ? 'Play' : 'Pause'}
             </button>
             ${currentTrack && html`Now Playing: ${currentTrack.name}`}
           `}
