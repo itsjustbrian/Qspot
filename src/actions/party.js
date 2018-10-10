@@ -34,6 +34,17 @@ export const leaveParty = (batch) => (_, getState) => {
   });
 };
 
+/**
+ * Outline for host ending party
+ * 
+ * flag set on party doc, "ended: true" or something
+ * Have all party members listen to party doc by default
+ * When they get the ended signal, remove themselves from the party
+ * In the background start cleaning up the party with a server side action
+ * Anyone who wasn't listening when the party ended will find it doesn't exist anymore when they try to fetch it again
+ * In this case, let them know it ended
+ */
+
 const receiveParty = (item) => {
   return {
     type: RECEIVE_PARTY,

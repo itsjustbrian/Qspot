@@ -149,10 +149,6 @@ class QspotApp extends connect(store)(LitElement) {
       <qspot-404 class="page" active?="${_page === '404'}"></qspot-404>
     </main>
 
-    <footer>
-      <p>Made with &hearts; by the Polymer team.</p>
-    </footer>
-
     ${_lazyResourcesLoaded ? html`
       <snack-bar active?="${_snackbarOpened}">
         You are now ${_offline ? 'offline' : 'online'}.

@@ -19,7 +19,7 @@ import { SharedStyles } from './shared-styles.js';
 class QspotJoin extends connect(store)(PageViewElement) {
   _render({ _joinError }) {
     return html`
-       ${SharedStyles}
+      ${SharedStyles}
       <section>
         <p>
           <h2>Join</h2>

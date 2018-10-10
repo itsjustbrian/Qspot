@@ -1,4 +1,4 @@
-import { API_URL } from '../new/globals.js';
+import { API_URL } from '../globals/globals.js';
 import { parseDoc } from '../firebase/firebase-utils.js';
 import { formatUrl } from '../util/fetch-utils.js';
 import { loadAuth, firebaseAuth, loadFirestore, firestore } from '../firebase/firebase.js';

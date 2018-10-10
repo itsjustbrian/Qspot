@@ -22,7 +22,7 @@ import { SharedStyles } from './shared-styles.js';
 class QspotMyTracks extends connect(store)(PageViewElement) {
   _render({ _myTracks }) {
     return html`
-       ${SharedStyles}
+      ${SharedStyles}
       <section>
         <p>
           <h2>My Tracks</h2>

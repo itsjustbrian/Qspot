@@ -136,7 +136,7 @@ export const installPlayer = async (store) => {
     const playerActive = playerActiveSelector(currentState);
 
     if (currentTrack && !isPaused && (!playerActive || (previousTrack && previousTrack.id) !== currentTrack.id)) {
-      return await store.dispatch(playTrack(currentTrack.id, getAdjustedPosition(playbackStateSelector(currentState))));
+      return store.dispatch(playTrack(currentTrack.id, getAdjustedPosition(playbackStateSelector(currentState))));
     }
 
     if (!playerActive) return;
