@@ -1,17 +1,8 @@
-/**
-@license
-Copyright (c) 2018 The Polymer Project Authors. All rights reserved.
-This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
-The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
-The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
-Code distributed by Google as part of the polymer project is also
-subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
-*/
-
 import { html } from '@polymer/lit-element';
-import { repeat } from '../../node_modules/lit-html/lib/repeat';
+import { repeat } from 'lit-html/directives/repeat.js';
 import { PageViewElement } from './page-view-element.js';
 import { connect } from 'pwa-helpers/connect-mixin.js';
+import { noSleep } from '../no-sleep/no-sleep-singleton.js';
 
 import { store } from '../store.js';
 
@@ -27,33 +18,38 @@ store.addReducers({
 // These are the shared styles needed by this element.
 import { SharedStyles } from './shared-styles.js';
 
-
 import { playbackStateSelector } from '../reducers/player';
 import { pausePlayer, resumePlayer, playNextInQueue, listenToParty } from '../actions/player';
 
 
+// Note: a blank song state is possible. Do something like disable the playback
+// controls in this case
 class QspotQueue extends connect(store)(PageViewElement) {
-  _render({ _queue, _playbackState }) {
-    const playbackState = _playbackState || {};
-    const currentTrack = playbackState.currentTrack;
+  render() {
+    const {
+      _queue,
+      _playbackState
+    } = this;
+
+    const currentTrack = _playbackState && _playbackState.currentTrack;
 
     return html`
       ${SharedStyles}
       <section>
         <h2>Queue</h2>
         <p>
-          ${html`
-            <button on-click="${() => store.dispatch(playNextInQueue())}">Start Party</button>
-            <button on-click="${() => store.dispatch(listenToParty())}">Listen to Party</button>
-            <button on-click="${() => store.dispatch(playbackState.paused ? resumePlayer() : pausePlayer())}">
-              ${playbackState.paused ? 'Play' : 'Pause'}
-            </button>
-            ${currentTrack && html`Now Playing: ${currentTrack.name}`}
-          `}
+          <button @click=${this._startPartyBtnClicked}>Start Party</button>
+          <button @click=${this._listenBtnClicked}>Listen to Party</button>
+          ${_playbackState ? html`
+          ${_playbackState.paused ? html`
+          <button @click=${this._playBtnClicked}>Play</button>` : html`
+          <button @click=${this._pauseBtnClicked}>Pause</button>`}
+          ${currentTrack ? html`Now Playing: ${currentTrack.name}` : null}
+          ` : null}
           <ol>
             ${repeat(_queue, (item) => item.id, (item) => html`
               <li>
-                ${item.failure ? 'Error loading track' : !item.track ? 'Loading...' : this.getTrackTemplate(item.track)}
+                ${item.failure ? 'Error loading track' : !item.track ? 'Loading...' : this._getTrackTemplate(item.track)}
                 <br>
                 Added by: ${item.submitterName}
               </li>`)}
@@ -63,18 +59,36 @@ class QspotQueue extends connect(store)(PageViewElement) {
     `;
   }
 
-  getTrackTemplate(track) {
-    return html`${track.name} - ${track.artists.reduce((str, artist, index) => str + (index === 0 ? artist.name : ', ' + artist.name), '')}`;
-  }
-
   static get properties() {
     return {
-      _queue: Array,
-      _playbackState: Object
+      _queue: { type: Array },
+      _playbackState: { type: Object }
     };
   }
 
-  _stateChanged(state) {
+  _getTrackTemplate(track) {
+    return html`${track.name} - ${track.artists.reduce((str, artist, index) => str + (index === 0 ? artist.name : ', ' + artist.name), '')}`;
+  }
+
+  _startPartyBtnClicked() {
+    noSleep.enable();
+    store.dispatch(playNextInQueue());
+  }
+
+  _listenBtnClicked() {
+    noSleep.enable();
+    store.dispatch(listenToParty());
+  }
+
+  _playBtnClicked() {
+    store.dispatch(resumePlayer());
+  }
+
+  _pauseBtnClicked() {
+    store.dispatch(pausePlayer());
+  }
+
+  stateChanged(state) {
     this._queue = queueSelector(state);
     this._playbackState = playbackStateSelector(state);
   }

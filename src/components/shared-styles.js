@@ -7,4 +7,12 @@ export const SharedStyles = html`
     contain: content;
     box-sizing: border-box;
   }
+
+  [hidden] {
+    display: none
+  }
+
+  [invisible] {
+    visibility: hidden
+  }
 `;

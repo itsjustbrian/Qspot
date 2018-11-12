@@ -1,6 +1,6 @@
 import { doBatchedAction, parseDoc } from '../firebase/firebase-utils';
 import { firestore } from '../firebase/firebase';
-import { userSelector, spotifyAccountSelector } from '../reducers/auth';
+import { userIdSelector, spotifyAccountSelector } from '../reducers/auth';
 
 export const SUCCEED_JOIN_PARTY = 'SUCCEED_JOIN_PARTY';
 export const FAIL_JOIN_PARTY = 'FAIL_JOIN_PARTY';
@@ -17,13 +17,13 @@ export const joinParty = (id, batch) => async (dispatch, getState) => {
   try {
     await doBatchedAction(batch, async (batch) => {
       const state = getState();
-      const currentUser = userSelector(state);
+      const currentUserId = userIdSelector(state);
 
-      batch.update(firestore.collection('users').doc(currentUser.id), {
+      batch.update(firestore.collection('users').doc(currentUserId), {
         currentParty: id
       });
 
-      const memberRef = firestore.collection('parties').doc(id).collection('members').doc(currentUser.id);
+      const memberRef = firestore.collection('parties').doc(id).collection('members').doc(currentUserId);
       const isMember = !!await getPartyMemberData(id, state);
 
       // If we've already seen this member, we don't want to reset the number of tracks they've added.
@@ -39,6 +39,7 @@ export const joinParty = (id, batch) => async (dispatch, getState) => {
   }
 
   dispatch(succeedJoinParty());
+  //dispatch(attachPartyListener());
 };
 
 const getPartyWithCode = async (code) => {
@@ -47,7 +48,7 @@ const getPartyWithCode = async (code) => {
 };
 
 const getPartyMemberData = async (partyId, state) => {
-  return parseDoc(await firestore.collection('parties').doc(partyId).collection('members').doc(userSelector(state).id).get());
+  return parseDoc(await firestore.collection('parties').doc(partyId).collection('members').doc(userIdSelector(state)).get());
 };
 
 const succeedJoinParty = () => {
@@ -65,31 +66,26 @@ const failJoinParty = (error) => {
 
 export const createParty = () => async (dispatch, getState) => {
   const state = getState();
-  const currentUser = userSelector(state);
+  const currentUserId = userIdSelector(state);
   const country = spotifyAccountSelector(state).country;
   const newPartyRef = firestore.collection('parties').doc();
   
   try {
-    const code = await generatePartyCode(newPartyRef.id);
     await doBatchedAction(null, async (batch) => {
       batch.set(newPartyRef, {
-        host: currentUser.id,
-        country,
-        code
+        host: currentUserId,
+        country
       });
 
       // The creator/host must join the party
       await dispatch(joinParty(newPartyRef.id, batch));
     });
+    const code = await generatePartyCode(newPartyRef.id);
+    await newPartyRef.update({ code });
   } catch (error) {
-    if (error.message !== 'Failed party code generation') {
-      // Roll back party code generation
-      deletePartyCode(newPartyRef.id);
-    }
-    console.log(error);
     return dispatch(failCreateParty());
   }
-
+  
   dispatch(succeedCreateParty());
 };
 
@@ -120,7 +116,7 @@ export async function generatePartyCode(partyId) {
     if (!newCode) throw null;
     return newCode;
   } catch (error) {
-    throw new Error('Failed party code generation');
+    throw new Error('failed party code generation');
   }
 }
 
@@ -134,8 +130,7 @@ const randomLetters = (numLetters) => {
   return letters;
 };
 
-export async function deletePartyCode(partyId) {
-
+export async function deletePartyCodeEntry(partyId) {
   const partyCodesRef = firestore.collection('party-codes');
   const { docs } = await partyCodesRef.where(`parties.${partyId}`, '>=', 0).get();
   if (!docs.length) return; // This party ID is not in the party-codes ledger, so nothing to delete

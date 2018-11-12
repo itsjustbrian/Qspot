@@ -1,11 +1,11 @@
 
-export const loadScripts = (urls, async) => {
+export const loadScripts = (urls, async = true) => {
+  if (typeof urls === 'string') urls = [urls];
   const scriptPromises = [];
   const frag = document.createDocumentFragment();
   for (const url of urls) {
     const script = document.createElement('script');
     script.src = url;
-    script.defer = !async;
     script.async = async;
     frag.appendChild(script);
     scriptPromises.push(_promisifyScript(script));

@@ -99,5 +99,5 @@ export const connectedDevicesSelector = state => state.player && state.player.co
 
 export const qspotDeviceIsConnectedSelector = createSelector(
   connectedDevicesSelector,
-  (devices) => devices.some((device) => device.name === 'Qspot')
+  (devices) => devices && devices.some((device) => device.name === 'Qspot')
 );
