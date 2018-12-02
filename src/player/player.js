@@ -97,25 +97,22 @@ export const installPlayer = async (store) => {
       resolveRequestedTrack();
     }
 
-    const currentUserIsHost = isHostSelector(store.getState());
-    if (!currentUserIsHost) {
-      oldPlaybackState = newPlaybackState;
-      return;
-    }
-    
-    if (oldPlaybackState &&
-      (finishedCurrentTrack(newPlaybackState, oldPlaybackState) ||
-        currentTrackSkipped(newPlaybackState, oldPlaybackState))) {
-      store.dispatch(playNextInQueue());
-    } else if (relevantStateChanged(newPlaybackState, oldPlaybackState)) {
-      const currentParty = currentPartySelector(state);
-      firestore.collection('parties').doc(currentParty).update({
-        playbackState: {
-          ...newPlaybackState,
-          lastUpdated: Timestamp.now()
-        }
-      });
-      store.dispatch(playbackStateChanged(newPlaybackState, PLAYER_ORIGIN));
+    const currentUserIsHost = isHostSelector(store.getState());    
+    if (currentUserIsHost) {
+      if (oldPlaybackState &&
+        (finishedCurrentTrack(newPlaybackState, oldPlaybackState) ||
+          currentTrackSkipped(newPlaybackState, oldPlaybackState))) {
+        store.dispatch(playNextInQueue());
+      } else if (relevantStateChanged(newPlaybackState, oldPlaybackState)) {
+        const currentParty = currentPartySelector(state);
+        firestore.collection('parties').doc(currentParty).update({
+          playbackState: {
+            ...newPlaybackState,
+            lastUpdated: Timestamp.now()
+          }
+        });
+        store.dispatch(playbackStateChanged(newPlaybackState, PLAYER_ORIGIN));
+      }
     }
 
     oldPlaybackState = newPlaybackState;

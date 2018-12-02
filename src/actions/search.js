@@ -1,5 +1,5 @@
 import { formatUrl, FetchRetry } from '../util/fetch-utils.js';
-import { debounce } from 'lodash-es';
+import debounce from 'lodash-es/debounce';
 import { sequentialize } from '../util/promise-utils.js';
 import { firestore, FieldValue } from '../firebase/firebase.js';
 import { parseDoc, doBatchedAction } from '../firebase/firebase-utils.js';
@@ -81,7 +81,7 @@ export const searchTracks = (query) => (dispatch, getState) => {
 
 const encodeQuery = (query) => {
   // Check if last 2 characters of query are alphanumueric,
-  // and if so, add wildcard to query. Wildcards improve search
+  // and if so, add wildcard character to query. Wildcards improve search
   // results but can produce errors without this precaution
   if (query.length > 2 && /^[a-zA-Z0-9]{2}$/.test(query.slice(-2))) {
     return query += '*';
