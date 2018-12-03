@@ -19,7 +19,7 @@ store.addReducers({
 import { SharedStyles } from './shared-styles.js';
 
 import { playbackStateSelector } from '../reducers/player';
-import { pausePlayer, resumePlayer, playNextInQueue, listenToParty } from '../actions/player';
+import { pausePlayer, resumePlayer, playNextInQueue } from '../actions/player';
 
 
 // Note: a blank song state is possible. Do something like disable the playback
@@ -39,7 +39,6 @@ class QspotQueue extends connect(store)(PageViewElement) {
         <h2>Queue</h2>
         <p>
           <button @click=${this._startPartyBtnClicked}>Start Party</button>
-          <button @click=${this._listenBtnClicked}>Listen to Party</button>
           ${_playbackState ? html`
           ${_playbackState.paused ? html`
           <button @click=${this._playBtnClicked}>Play</button>` : html`
@@ -73,11 +72,6 @@ class QspotQueue extends connect(store)(PageViewElement) {
   _startPartyBtnClicked() {
     noSleep.enable();
     store.dispatch(playNextInQueue());
-  }
-
-  _listenBtnClicked() {
-    noSleep.enable();
-    store.dispatch(listenToParty());
   }
 
   _playBtnClicked() {

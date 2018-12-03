@@ -3,7 +3,6 @@ import { firestore, loadFirestore, Timestamp } from '../firebase/firebase.js';
 import { greaterThan } from '../firebase/firebase-utils.js';
 import { spotifyClientTokenSelector, spotifyAccessTokenSelector } from '../reducers/auth.js';
 import { getAuthIdToken } from './auth.js';
-import { fetchRetry } from '../util/fetch-utils.js';
 
 export const REQUEST_NEW_CLIENT_TOKEN = 'REQUEST_NEW_CLIENT_TOKEN';
 export const RECEIVE_NEW_CLIENT_TOKEN = 'RECEIVE_NEW_CLIENT_TOKEN';
@@ -32,7 +31,7 @@ const fetchNewClientToken = () => async (dispatch, getState) => {
   if (!shouldFetchNewClientToken(getState())) return;
   dispatch(requestNewClientToken());
   try {
-    const response = await fetchRetry(`${API_URL}/getSpotifyClientCredentials`);
+    const response = await fetch(`${API_URL}/getSpotifyClientCredentials`);
     const { token } = await response.json();
     dispatch(receiveNewClientToken(token));
     return token;
@@ -102,7 +101,7 @@ export const fetchNewAccessToken = () => async (dispatch, getState) => {
   dispatch(requestNewAccessToken());
   try {
     const authIdToken = await getAuthIdToken();
-    const response = await fetchRetry(`${API_URL}/refreshAccessToken`, {
+    const response = await fetch(`${API_URL}/refreshAccessToken`, {
       headers: {
         Authorization: `Bearer ${authIdToken}`
       }

@@ -31,10 +31,6 @@ export const loadPage = (module) => async (dispatch, getState) => {
       await dispatch(module.searchTracks(query));
       await dispatch(setupPlayer());
       break;
-    case 'my-tracks':
-      await dispatch(module.loadMyTracks());
-      await dispatch(setupPlayer());
-      break;
   }
 };
 
@@ -52,9 +48,6 @@ export const updateLocation = (location) => async (dispatch, getState) => {
       break;
     case 'search':
       pageImport = import('../components/qspot-search.js');
-      break;
-    case 'my-tracks':
-      pageImport = import('../components/qspot-my-tracks.js');
       break;
     case 'join':
       pageImport = import('../components/qspot-join.js');

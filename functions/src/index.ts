@@ -1,6 +1,5 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import * as firebase_tools from 'firebase-tools';
 import * as express from 'express';
 import * as cookieParser from 'cookie-parser';
 import * as cors from 'cors';
@@ -70,6 +69,7 @@ async function authenticate(request, _, next) {
 
 const app = express();
 app.use(cors(CORS_OPTIONS));
+app.options('*', cors())
 
 app.get('/getSpotifyClientCredentials', catch_wrap(async (_, response) => {
   const spotifyAuthResponse = await Spotify.clientCredentialsGrant();
@@ -212,18 +212,6 @@ app.get('/createSpotifyAccount', cookieParser(), catch_wrap(async (request, resp
   return response.status(200).json({ token });
 }));
 
-app.delete('/party/:id', authenticate, catch_wrap(async (request, response) => {
-  const uid = request['user'].uid;
-  const partyId = request.params.id;
-  if (!partyId) throw new HttpsError(400, 'no party ID provided');
-  const partyDoc = await admin.firestore().collection('parties').doc(partyId).get();
-  if (!partyDoc.exists) throw new HttpsError(404, 'party does not exist');
-  if (partyDoc.data().host !== uid) throw new HttpsError(403, 'requesting user is not the host of requested party');
-
-  await deletePath(`parties/${partyId}`);
-  return response.status(204).send('');
-}));
-
 app.use((request, response, next) => {
   throw new HttpsError(404, 'no such api endpoint exists');
 });
@@ -241,7 +229,6 @@ app.use((error, request, response, next) => {
 });
 
 exports.api = functions.https.onRequest(app);
-exports.api_heavy_duty = functions.runWith({ timeoutSeconds: 540, memory: '2GB' }).https.onRequest(app);
 
 // Actions
 
@@ -253,15 +240,6 @@ function saveSpotifyClientToken(token) {
 
 function saveSpotifyUserData(uid, data) {
   return admin.firestore().collection('users').doc(uid).set(data, { merge: true });
-}
-
-function deletePath(path, recursive = true) {
-  return firebase_tools.firestore.delete(path, {
-    recursive,
-    project: process.env.GCLOUD_PROJECT,
-    yes: true,
-    token: FIREBASE_TOKEN
-  });
 }
 
 // Util

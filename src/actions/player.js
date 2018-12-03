@@ -1,10 +1,10 @@
 import { firestore } from '../firebase/firebase.js';
 import { doBatchedAction, parseDoc } from '../firebase/firebase-utils.js';
-import { formatUrl, formatBody, fetchRetry } from '../util/fetch-utils.js';
+import { formatUrl, formatBody } from '../util/fetch-utils.js';
 import { sequentialize } from '../util/promise-utils.js';
 import { store } from '../store.js';
 import { currentPartySelector, isHostSelector } from '../reducers/party.js';
-import { userIdSelector, spotifyAccountIsPremiumSelector } from '../reducers/auth.js';
+import { spotifyAccountIsPremiumSelector } from '../reducers/auth.js';
 import { qspotDeviceIsConnectedSelector, deviceIdSelector, playerActiveSelector } from '../reducers/player.js';
 
 import { getAccessToken } from './tokens.js';
@@ -79,7 +79,7 @@ export const attachPlaybackStateListener = () => (dispatch, getState) => {
     });
   }));
 };
-export const detachplaybackListener = () => playbackListener && (playbackListener(), playbackPromise = playbackListener = null);
+export const detachPlaybackListener = () => playbackListener && (playbackListener(), playbackPromise = playbackListener = null);
 
 const _playNextInQueue = sequentialize(async (dispatch, getState) => {
   const state = getState();
@@ -106,7 +106,7 @@ export const playNextInQueue = () => (dispatch, getState) => {
 export const playTrack = (id, position) => async (dispatch, getState) => {
   const token = await dispatch(getAccessToken());
   const deviceId = deviceIdSelector(getState());
-  return fetchRetry(formatUrl('https://api.spotify.com/v1/me/player/play', {
+  return fetch(formatUrl('https://api.spotify.com/v1/me/player/play', {
     device_id: deviceId
   }), {
     body: formatBody({
@@ -124,7 +124,7 @@ export const pausePlayer = () => async (dispatch, getState) => {
     dispatch({ type: PAUSE_PLAYER });
   } else {
     const token = await dispatch(getAccessToken());
-    return fetchRetry('https://api.spotify.com/v1/me/player/pause', {
+    return fetch('https://api.spotify.com/v1/me/player/pause', {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -137,7 +137,7 @@ export const resumePlayer = () => async (dispatch, getState) => {
     dispatch({ type: RESUME_PLAYER });
   } else {
     const token = await dispatch(getAccessToken());
-    return fetchRetry('https://api.spotify.com/v1/me/player/play', {
+    return fetch('https://api.spotify.com/v1/me/player/play', {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -146,22 +146,12 @@ export const resumePlayer = () => async (dispatch, getState) => {
 
 export const getConnectedDevices = () => async (dispatch) => {
   const token = await dispatch(getAccessToken());
-  let response = await fetchRetry('https://api.spotify.com/v1/me/player/devices', {
+  let response = await fetch('https://api.spotify.com/v1/me/player/devices', {
     headers: { Authorization: `Bearer ${token}` }
   });
   response = await response.json();
   const devices = response && response.devices;
   dispatch({ type: GET_CONNECTED_DEVICES, devices });
-};
-
-export const listenToParty = () => (_, getState) => {
-  const state = getState();
-  const currentParty = currentPartySelector(state);
-  const currentUserId = userIdSelector(state);
-  firestore.collection('parties').doc(currentParty).collection('members').doc(currentUserId).update({
-    listening: true
-  });
-  loadPlayer();
 };
 
 export const playbackStateChanged = (playbackState, origin) => {

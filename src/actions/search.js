@@ -1,4 +1,4 @@
-import { formatUrl, FetchRetry } from '../util/fetch-utils.js';
+import { formatUrl } from '../util/fetch-utils.js';
 import debounce from 'lodash-es/debounce';
 import { sequentialize } from '../util/promise-utils.js';
 import { firestore, FieldValue } from '../firebase/firebase.js';
@@ -23,12 +23,10 @@ export const setQuery = (query) => (dispatch) => {
   dispatch(replaceLocationURL(`/search${query && '?q=' + query}`));
 };
 
-let searchFetch;
 const _searchTracks = debounce(async (query, dispatch, getState) => {
   query = encodeQuery(query);
   let previousQuery = requestedQuerySelector(getState());
   if (previousQuery === query) return;
-  if (searchFetch) searchFetch.abort();
   dispatch(requestSearchTracks(query));
   
   const tokenGetter = spotifyAccountSelector(getState()).linked ?
@@ -37,28 +35,14 @@ const _searchTracks = debounce(async (query, dispatch, getState) => {
   let token = await tokenGetter();
   const market = partyDataSelector(getState()).country;
 
-  searchFetch = new FetchRetry(formatUrl('https://api.spotify.com/v1/search', {
-    q: query,
-    limit: SEARCH_LIMIT,
-    type: 'track',
-    best_match: 'true',
-    market
-  }), { headers: { Authorization: `Bearer ${token}` } });
-
-  let expiredTokenHandled = false;
-  searchFetch.onNotOk(async (response) => {
-    response = await response.json();
-    if (response.error.message === 'The access token expired' && !expiredTokenHandled) {
-      expiredTokenHandled = true;
-      token = await tokenGetter(true);
-      searchFetch.options.headers.Authorization = `Bearer ${token}`;
-      return FetchRetry.RERUN;
-    }
-  });
-
   try {
-    let response = await searchFetch.run();
-    if (!response.ok) throw new Error('Response not ok');
+    let response = await fetch(formatUrl('https://api.spotify.com/v1/search', {
+      q: query,
+      limit: SEARCH_LIMIT,
+      type: 'track',
+      best_match: 'true',
+      market
+    }), { headers: { Authorization: `Bearer ${token}` } });
     response = await response.json();
     const tracks = response.tracks.items;
 

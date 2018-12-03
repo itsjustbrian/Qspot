@@ -1,6 +1,6 @@
 import { API_URL } from '../globals/globals.js';
 import { parseDoc } from '../firebase/firebase-utils.js';
-import { formatUrl, fetchRetry } from '../util/fetch-utils.js';
+import { formatUrl } from '../util/fetch-utils.js';
 import { loadAuth, firebaseAuth, loadFirestore, firestore } from '../firebase/firebase.js';
 import { replaceLocationURL } from './app.js';
 import { spotifyLoginSelector, userSelector } from '../reducers/auth.js';
@@ -95,7 +95,7 @@ export const createSpotifyAccount = () => async (dispatch, getState) => {
 
   try {
     if (error || !code) throw error || 'No Code Provided';
-    const response = await fetchRetry(formatUrl(`${API_URL}/createSpotifyAccount`, {
+    const response = await fetch(formatUrl(`${API_URL}/createSpotifyAccount`, {
       code,
       state: verificationState
     }), { credentials: 'include' });
