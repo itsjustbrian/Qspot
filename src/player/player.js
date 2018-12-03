@@ -5,7 +5,7 @@ import { takeLatest } from '../util/promise-utils.js';
 import { subscribe } from './player-middleware.js';
 import { currentPartySelector } from '../reducers/party.js';
 import { playbackStateSelector, playerLoadedSelector, playerActiveSelector } from '../reducers/player.js';
-import { fetchWithToken, ACCESS_TOKEN } from '../actions/tokens.js';
+import { getAccessToken, fetchWithToken, ACCESS_TOKEN } from '../actions/tokens.js';
 import {
   playNextInQueue,
   playerError,
