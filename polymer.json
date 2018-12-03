@@ -62,6 +62,22 @@
       },
       "bundle": true,
       "addServiceWorker": true
+    },
+    {
+      "name": "es5-bundled-no-sw",
+      "js": {
+        "compile": "es5",
+        "minify": true,
+        "transformModulesToAmd": true
+      },
+      "css": {
+        "minify": true
+      },
+      "html": {
+        "minify": true
+      },
+      "bundle": true,
+      "addServiceWorker": false
     }
   ],
   "moduleResolution": "node",

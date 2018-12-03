@@ -38,6 +38,17 @@ const Spotify = new SpotifyWebApi({
   redirectUri: SPOTIFY_AUTH_REDIRECT_URI,
 });
 
+// Error class
+
+class HttpsError extends Error {
+  status: number;
+  constructor(status, message) {
+    super();
+    this.status = status;
+    this.message = message;
+  }
+}
+
 // Middleware
 
 const catch_wrap = fn => (...args) => fn(...args).catch(args[2]);
@@ -56,17 +67,6 @@ async function authenticate(request, _, next) {
     next(new HttpsError(403, 'unauthorized'));
   }
 };
-
-// Error class
-
-class HttpsError extends Error {
-  status: number;
-  constructor(status, message) {
-    super();
-    this.status = status;
-    this.message = message;
-  }
-}
 
 const app = express();
 app.use(cors(CORS_OPTIONS));
@@ -102,7 +102,7 @@ app.get('/spotifyAuthRedirect', cookieParser(), (request, response) => {
   console.log('Setting verification state:', state);
   response.cookie('state', state.toString(), { maxAge: 3600000, secure: PRODUCTION_ENV, httpOnly: true });
   const authorizeURL = Spotify.createAuthorizeURL(OAUTH_SCOPES, state.toString(), true);
-  return response.redirect(authorizeURL);
+  response.redirect(authorizeURL);
 });
 
 app.get('/createSpotifyAccount', cookieParser(), catch_wrap(async (request, response) => {

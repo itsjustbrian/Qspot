@@ -43,7 +43,7 @@ export const updateLocation = (location) => async (dispatch, getState) => {
   const params = new URLSearchParams(location.search);
   const splitPath = (path || '').slice(1).split('/');
   let page = splitPath[0];
-  if (!page) return dispatch(replaceLocationURL('/queue'));
+  if (!page) return dispatch(replaceLocationURL('/join'));
 
   let pageImport;
   switch (page) {

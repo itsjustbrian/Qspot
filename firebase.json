@@ -10,7 +10,7 @@
     ]
   },
   "hosting": {
-    "public": "/",
+    "public": "build/es5-bundled-no-sw",
     "ignore": [
       "firebase.json",
       "**/.*"

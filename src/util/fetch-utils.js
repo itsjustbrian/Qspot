@@ -30,7 +30,7 @@ const RERUN_AFTER_TIMEOUT = 'RERUN_AFTER_TIMEOUT';
 
 export class FetchRetry {
   constructor(url, options, retries = FetchRetry.DEFAULT_RETRIES, timeout = 0) {
-    console.error(retries);
+    //console.error(retries);
     this.url = url;
     this.options = options || {};
     if (typeof retries === 'number') {
@@ -59,10 +59,10 @@ export class FetchRetry {
   }
 
   async run() {
-    console.error('numRetries: ', this._numRetries);
+    //console.error('numRetries: ', this._numRetries);
     this._aborted = false;
     for (let attemptNum = 0; attemptNum < this._numRetries + 1; attemptNum++) {
-      console.error('On attempt: ', attemptNum + 1);
+      //console.error('On attempt: ', attemptNum + 1);
       let rerunTimeout = 0;
       let error;
       try {
