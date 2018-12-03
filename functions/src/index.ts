@@ -69,7 +69,6 @@ async function authenticate(request, _, next) {
 
 const app = express();
 app.use(cors(CORS_OPTIONS));
-app.options('*', cors())
 
 app.get('/getSpotifyClientCredentials', catch_wrap(async (_, response) => {
   const spotifyAuthResponse = await Spotify.clientCredentialsGrant();
@@ -96,14 +95,6 @@ app.get('/refreshAccessToken', authenticate, catch_wrap(async (request, response
   });
   return response.status(200).json({ token });
 }));
-
-app.get('/spotifyAuthRedirect', cookieParser(), (request, response) => {
-  const state = request.cookies.state || crypto.randomBytes(20).toString('hex');
-  console.log('Setting verification state:', state);
-  response.cookie('state', state.toString(), { maxAge: 3600000, secure: PRODUCTION_ENV, httpOnly: true });
-  const authorizeURL = Spotify.createAuthorizeURL(OAUTH_SCOPES, state.toString(), true);
-  response.redirect(authorizeURL);
-});
 
 app.get('/createSpotifyAccount', cookieParser(), catch_wrap(async (request, response) => {
   console.log('Received verification state:', request.cookies.state);
@@ -229,6 +220,16 @@ app.use((error, request, response, next) => {
 });
 
 exports.api = functions.https.onRequest(app);
+
+exports.redirect = functions.https.onRequest((request, response) => {
+  cookieParser()(request, response, () => {
+    const state = request.cookies.state || crypto.randomBytes(20).toString('hex');
+    console.log('Setting verification state:', state);
+    response.cookie('state', state.toString(), { maxAge: 3600000, secure: PRODUCTION_ENV, httpOnly: true });
+    const authorizeURL = Spotify.createAuthorizeURL(OAUTH_SCOPES, state.toString(), true);
+    response.redirect(authorizeURL);
+  });
+});
 
 // Actions
 
