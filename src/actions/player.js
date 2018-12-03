@@ -7,7 +7,7 @@ import { currentPartySelector, isHostSelector } from '../reducers/party.js';
 import { spotifyAccountIsPremiumSelector } from '../reducers/auth.js';
 import { qspotDeviceIsConnectedSelector, deviceIdSelector, playerActiveSelector } from '../reducers/player.js';
 
-import { getAccessToken } from './tokens.js';
+import { fetchWithToken, ACCESS_TOKEN } from './tokens.js';
 
 export const PLAYER_CREATED = 'PLAYER_CREATED';
 export const PLAYER_STATE_CHANGED = 'PLAYER_STATE_CHANGED';
@@ -104,18 +104,16 @@ export const playNextInQueue = () => (dispatch, getState) => {
 };
 
 export const playTrack = (id, position) => async (dispatch, getState) => {
-  const token = await dispatch(getAccessToken());
   const deviceId = deviceIdSelector(getState());
-  return fetch(formatUrl('https://api.spotify.com/v1/me/player/play', {
+  return dispatch(fetchWithToken(ACCESS_TOKEN, formatUrl('https://api.spotify.com/v1/me/player/play', {
     device_id: deviceId
   }), {
     body: formatBody({
       uris: [`spotify:track:${id}`],
       position_ms: position
     }),
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}` }
-  });
+    method: 'PUT'
+  }));
 };
 
 export const pausePlayer = () => async (dispatch, getState) => {
@@ -123,11 +121,9 @@ export const pausePlayer = () => async (dispatch, getState) => {
   if (playerActive) {
     dispatch({ type: PAUSE_PLAYER });
   } else {
-    const token = await dispatch(getAccessToken());
-    return fetch('https://api.spotify.com/v1/me/player/pause', {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    return dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/pause', {
+      method: 'PUT'
+    }));
   }
 };
 
@@ -136,19 +132,14 @@ export const resumePlayer = () => async (dispatch, getState) => {
   if (playerActive) {
     dispatch({ type: RESUME_PLAYER });
   } else {
-    const token = await dispatch(getAccessToken());
-    return fetch('https://api.spotify.com/v1/me/player/play', {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
+    dispatch(fetchWithToken(ACCESS_TOKEN), 'https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT'
     });
   }
 };
 
 export const getConnectedDevices = () => async (dispatch) => {
-  const token = await dispatch(getAccessToken());
-  let response = await fetch('https://api.spotify.com/v1/me/player/devices', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  let response = await dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/devices'));
   response = await response.json();
   const devices = response && response.devices;
   dispatch({ type: GET_CONNECTED_DEVICES, devices });

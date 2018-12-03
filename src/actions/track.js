@@ -1,4 +1,4 @@
-import { getAccessToken, getClientToken } from './tokens';
+import { fetchWithToken, ACCESS_TOKEN, CLIENT_TOKEN } from './tokens';
 import { spotifyAccountSelector } from '../reducers/auth';
 
 export const RECEIVE_TRACK = 'RECEIVE_TRACK';
@@ -13,14 +13,9 @@ export const getTrack = (id, origin) => async (dispatch, getState) => {
     dispatch(receiveTrack(id, track, origin));
     return;
   }
-  const token = spotifyAccountSelector(state).linked ?
-    await dispatch(getAccessToken()) : await dispatch(getClientToken());
   try {
-    const response = await fetch(`https://api.spotify.com/v1/tracks/${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+    const response = await dispatch(fetchWithToken(spotifyAccountSelector(getState()).linked ? ACCESS_TOKEN : CLIENT_TOKEN,
+      `https://api.spotify.com/v1/tracks/${id}`));
     track = await response.json();
     dispatch(receiveTrack(id, track, origin));
   } catch (error) {

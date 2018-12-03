@@ -5,7 +5,7 @@ import { takeLatest } from '../util/promise-utils.js';
 import { subscribe } from './player-middleware.js';
 import { currentPartySelector } from '../reducers/party.js';
 import { playbackStateSelector, playerLoadedSelector, playerActiveSelector } from '../reducers/player.js';
-import { getAccessToken } from '../actions/tokens.js';
+import { fetchWithToken, ACCESS_TOKEN } from '../actions/tokens.js';
 import {
   playNextInQueue,
   playerError,
@@ -98,12 +98,10 @@ export const installPlayer = async (store) => {
   const state = store.getState();
 
   // Transfer playback to this player
-  const token = await store.dispatch(getAccessToken());
-  await fetch('https://api.spotify.com/v1/me/player', {
+  await store.dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player', {
     body: formatBody({ device_ids: [deviceId] }),
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}` }
-  });
+    method: 'PUT'
+  }));
 
   const handleSubscription = takeLatest(async (previousState, currentState) => {
     const { paused: wasPaused, position: previousPosition } = playbackStateSelector(previousState) || {};

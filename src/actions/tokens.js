@@ -13,6 +13,9 @@ export const REQUEST_NEW_ACCESS_TOKEN = 'REQUEST_NEW_ACCESS_TOKEN';
 export const RECEIVE_NEW_ACCESS_TOKEN = 'RECEIVE_NEW_ACCESS_TOKEN';
 export const FAIL_NEW_ACCESS_TOKEN = 'FAIL_NEW_ACCESS_TOKEN';
 
+export const ACCESS_TOKEN = 'ACCESS_TOKEN';
+export const CLIENT_TOKEN = 'CLIENT_TOKEN';
+
 let newClientTokenPromise;
 export const getClientToken = (forceRefresh) => async (dispatch, getState) => {
   await loadFirestore();
@@ -136,4 +139,21 @@ const failNewAccessToken = () => {
   return {
     type: FAIL_NEW_ACCESS_TOKEN
   };
+};
+
+export const fetchWithToken = (type, url, options = {}) => async (dispatch) => {
+  const tokenGetter = type === ACCESS_TOKEN ?
+    (forceRefresh) => dispatch(getAccessToken(forceRefresh)) :
+    (forceRefresh) => dispatch(getClientToken(forceRefresh));
+  let token = await tokenGetter();
+  options.headers = options.headers || {};
+  options.headers.Authorization = `Bearer ${token}`;
+  let response = await fetch(url, options);
+  const responseJSON = await response.json();
+  if (responseJSON.error.message === 'The access token expired') {
+    token = await tokenGetter(true);
+    options.headers.Authorization = `Bearer ${token}`;
+    response = await fetch(url, options);
+  }
+  return response;
 };

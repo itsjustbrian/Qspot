@@ -4,7 +4,7 @@ import { sequentialize } from '../util/promise-utils.js';
 import { firestore, FieldValue } from '../firebase/firebase.js';
 import { parseDoc, doBatchedAction } from '../firebase/firebase-utils.js';
 
-import { getClientToken, getAccessToken } from './tokens.js';
+import { fetchWithToken, ACCESS_TOKEN, CLIENT_TOKEN } from './tokens.js';
 import { replaceLocationURL } from './app.js';
 import { requestedQuerySelector } from '../reducers/search.js';
 import { spotifyAccountSelector, userSelector, userIdSelector } from '../reducers/auth.js';
@@ -27,22 +27,19 @@ const _searchTracks = debounce(async (query, dispatch, getState) => {
   query = encodeQuery(query);
   let previousQuery = requestedQuerySelector(getState());
   if (previousQuery === query) return;
-  dispatch(requestSearchTracks(query));
-  
-  const tokenGetter = spotifyAccountSelector(getState()).linked ?
-    (forceRefresh) => dispatch(getAccessToken(forceRefresh)) :
-    (forceRefresh) => dispatch(getClientToken(forceRefresh));
-  let token = await tokenGetter();
-  const market = partyDataSelector(getState()).country;
 
   try {
-    let response = await fetch(formatUrl('https://api.spotify.com/v1/search', {
-      q: query,
-      limit: SEARCH_LIMIT,
-      type: 'track',
-      best_match: 'true',
-      market
-    }), { headers: { Authorization: `Bearer ${token}` } });
+    dispatch(requestSearchTracks(query));
+    const market = partyDataSelector(getState()).country;
+    let response = await dispatch(fetchWithToken(spotifyAccountSelector(getState()).linked ? ACCESS_TOKEN : CLIENT_TOKEN,
+      formatUrl('https://api.spotify.com/v1/search', {
+        q: query,
+        limit: SEARCH_LIMIT,
+        type: 'track',
+        best_match: 'true',
+        market
+      })
+    ));
     response = await response.json();
     const tracks = response.tracks.items;
 
