@@ -140,7 +140,6 @@ export const resumePlayer = () => async (dispatch, getState) => {
 
 export const getConnectedDevices = () => async (dispatch) => {
   let response = await dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/devices'));
-  response = await response.json();
   const devices = response && response.devices;
   dispatch({ type: GET_CONNECTED_DEVICES, devices });
 };

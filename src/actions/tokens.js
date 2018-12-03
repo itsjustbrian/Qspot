@@ -149,11 +149,12 @@ export const fetchWithToken = (type, url, options = {}) => async (dispatch) => {
   options.headers = options.headers || {};
   options.headers.Authorization = `Bearer ${token}`;
   let response = await fetch(url, options);
-  const responseJSON = await response.json();
-  if (responseJSON.error.message === 'The access token expired') {
+  let responseJSON = await response.json();
+  if (!response.ok && responseJSON.error && responseJSON.error.message === 'The access token expired') {
     token = await tokenGetter(true);
     options.headers.Authorization = `Bearer ${token}`;
     response = await fetch(url, options);
+    responseJSON = await response.json();
   }
-  return response;
+  return responseJSON;
 };

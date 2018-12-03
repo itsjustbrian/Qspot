@@ -14,9 +14,8 @@ export const getTrack = (id, origin) => async (dispatch, getState) => {
     return;
   }
   try {
-    const response = await dispatch(fetchWithToken(spotifyAccountSelector(getState()).linked ? ACCESS_TOKEN : CLIENT_TOKEN,
+    track = await dispatch(fetchWithToken(spotifyAccountSelector(getState()).linked ? ACCESS_TOKEN : CLIENT_TOKEN,
       `https://api.spotify.com/v1/tracks/${id}`));
-    track = await response.json();
     dispatch(receiveTrack(id, track, origin));
   } catch (error) {
     dispatch(failTrack(id, origin));
