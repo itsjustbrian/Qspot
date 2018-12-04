@@ -128,13 +128,15 @@ export const pausePlayer = () => (dispatch, getState) => {
 };
 
 export const resumePlayer = () => (dispatch, getState) => {
+  console.log('foo');
   const playerActive = playerActiveSelector(getState());
   if (playerActive) {
     dispatch({ type: RESUME_PLAYER });
   } else {
-    return dispatch(fetchWithToken(ACCESS_TOKEN), 'https://api.spotify.com/v1/me/player/play', {
+    console.log('bar');
+    return dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/play', {
       method: 'PUT'
-    });
+    }));
   }
 };
 
