@@ -31,7 +31,7 @@ const _searchTracks = debounce(async (query, dispatch, getState) => {
   try {
     dispatch(requestSearchTracks(query));
     const market = partyDataSelector(getState()).country;
-    const response = await dispatch(fetchWithToken(spotifyAccountSelector(getState()).linked ? ACCESS_TOKEN : CLIENT_TOKEN,
+    let response = await dispatch(fetchWithToken(spotifyAccountSelector(getState()).linked ? ACCESS_TOKEN : CLIENT_TOKEN,
       formatUrl('https://api.spotify.com/v1/search', {
         q: query,
         limit: SEARCH_LIMIT,
@@ -40,6 +40,7 @@ const _searchTracks = debounce(async (query, dispatch, getState) => {
         market
       })
     ));
+    response = await response.json();
     const tracks = response.tracks.items;
 
     previousQuery = requestedQuerySelector(getState());

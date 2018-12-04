@@ -103,7 +103,7 @@ export const playNextInQueue = () => (dispatch, getState) => {
   _playNextInQueue(dispatch, getState);
 };
 
-export const playTrack = (id, position) => async (dispatch, getState) => {
+export const playTrack = (id, position) => (dispatch, getState) => {
   const deviceId = deviceIdSelector(getState());
   return dispatch(fetchWithToken(ACCESS_TOKEN, formatUrl('https://api.spotify.com/v1/me/player/play', {
     device_id: deviceId
@@ -116,7 +116,7 @@ export const playTrack = (id, position) => async (dispatch, getState) => {
   }));
 };
 
-export const pausePlayer = () => async (dispatch, getState) => {
+export const pausePlayer = () => (dispatch, getState) => {
   const playerActive = playerActiveSelector(getState());
   if (playerActive) {
     dispatch({ type: PAUSE_PLAYER });
@@ -127,12 +127,12 @@ export const pausePlayer = () => async (dispatch, getState) => {
   }
 };
 
-export const resumePlayer = () => async (dispatch, getState) => {
+export const resumePlayer = () => (dispatch, getState) => {
   const playerActive = playerActiveSelector(getState());
   if (playerActive) {
     dispatch({ type: RESUME_PLAYER });
   } else {
-    dispatch(fetchWithToken(ACCESS_TOKEN), 'https://api.spotify.com/v1/me/player/play', {
+    return dispatch(fetchWithToken(ACCESS_TOKEN), 'https://api.spotify.com/v1/me/player/play', {
       method: 'PUT'
     });
   }
@@ -140,6 +140,7 @@ export const resumePlayer = () => async (dispatch, getState) => {
 
 export const getConnectedDevices = () => async (dispatch) => {
   let response = await dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/devices'));
+  response = await response.json();
   const devices = response && response.devices;
   dispatch({ type: GET_CONNECTED_DEVICES, devices });
 };

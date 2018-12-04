@@ -149,12 +149,19 @@ export const fetchWithToken = (type, url, options = {}) => async (dispatch) => {
   options.headers = options.headers || {};
   options.headers.Authorization = `Bearer ${token}`;
   let response = await fetch(url, options);
-  let responseJSON = await response.json();
-  if (!response.ok && responseJSON.error && responseJSON.error.message === 'The access token expired') {
+  if (response.ok) return response;
+
+  let responseClone = response.clone();
+  try {
+    responseClone = await responseClone.json();
+  } catch (error) {
+    return response;
+  }
+
+  if (responseClone.error && responseClone.error.message === 'The access token expired') {
     token = await tokenGetter(true);
     options.headers.Authorization = `Bearer ${token}`;
     response = await fetch(url, options);
-    responseJSON = await response.json();
   }
-  return responseJSON;
+  return response;
 };
