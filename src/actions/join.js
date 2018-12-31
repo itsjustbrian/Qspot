@@ -23,9 +23,9 @@ export const joinParty = (id, batch) => async (dispatch, getState) => {
         currentParty: id
       });
 
-      const memberRef = firestore.collection('parties').doc(id).collection('members').doc(currentUserId);
       const isMember = !!await getPartyMemberData(id, state);
 
+      const memberRef = firestore.collection('parties').doc(id).collection('members').doc(currentUserId);
       // If we've already seen this member, we don't want to reset the number of tracks they've added.
       isMember ? batch.update(memberRef, { active: true }) :
         batch.set(memberRef, {

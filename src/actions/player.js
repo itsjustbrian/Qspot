@@ -90,13 +90,16 @@ const _playNextInQueue = sequentialize(async (dispatch, getState) => {
   await dispatch(playTrack(nextTrack.id));
   
   await doBatchedAction(null, async (batch) => {
-    const member = parseDoc(await firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId).get());
-    const { numTracksPlayed } = member;
     batch.delete(firestore.collection('parties').doc(currentParty).collection('tracks').doc(nextTrack.id));
-    // Only one user (the host) should be executing this, so avoiding transactions is a-okay
-    batch.update(firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId), {
-      numTracksPlayed: numTracksPlayed + 1
-    });
+    
+    const member = parseDoc(await firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId).get());
+    if (member) {
+      const { numTracksPlayed } = member;
+      // Only one user (the host) should be executing this, so avoiding transactions is a-okay
+      batch.update(firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId), {
+        numTracksPlayed: numTracksPlayed + 1
+      });
+    }
   });
 });
 export const playNextInQueue = () => (dispatch, getState) => {
