@@ -80,7 +80,7 @@ export const signIn = () => async (dispatch) => {
 };
 
 export const signInToSpotify = () => (dispatch) => {
-  window.location.href = `${API_URL}/spotifyAuthRedirect`;
+  window.location.href = window.location.href = window.location.hostname === 'localhost' ? 'http://localhost:5000/queuespot-917af/us-central1/redirect' : 'https://us-central1-queuespot-917af.cloudfunctions.net/redirect';
 };
 
 export const createSpotifyAccount = () => async (dispatch, getState) => {
