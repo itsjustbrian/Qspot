@@ -1,5 +1,5 @@
 import { html } from '@polymer/lit-element';
-import { repeat } from 'lit-html/lib/repeat';
+import { repeat } from 'lit-html/directives/repeat.js';
 import { connect } from 'pwa-helpers/connect-mixin';
 import { PageViewElement } from './page-view-element.js';
 
@@ -7,6 +7,7 @@ import { store } from '../store.js';
 
 // Actions
 import { loadMyTracks } from '../actions/my-tracks.js';
+import { leaveParty, endParty } from '../actions/party.js';
 
 // We are lazy loading its reducer.
 import myTracks, { myTracksSelector } from '../reducers/my-tracks.js';
@@ -20,16 +21,19 @@ store.addReducers({
 import { SharedStyles } from './shared-styles.js';
 
 class QspotMyTracks extends connect(store)(PageViewElement) {
-  _render({ _myTracks }) {
+  render() {
+    const { _myTracks } = this;
     return html`
-       ${SharedStyles}
+      ${SharedStyles}
       <section>
         <p>
           <h2>My Tracks</h2>
+          <button @click=${this._onLeaveBtnClicked}>Leave Party</button>
+          <button @click=${this._onEndPartyBtnClicked}>End Party</button>
           <ol>
             ${repeat(_myTracks, (item) => item.id, (item) => html`
             <li>
-              ${item.failure ? 'Error loading track' : !item.track ? 'Loading...' : this.getTrackTemplate(item.track)}
+              ${item.failure ? 'Error loading track' : !item.track ? 'Loading...' : this._getTrackTemplate(item.track)}
               <br>
               Position: ${item.positionInQueue}
             </li>`)}
@@ -39,17 +43,25 @@ class QspotMyTracks extends connect(store)(PageViewElement) {
     `;
   }
 
-  getTrackTemplate(track) {
-    return html`${track.name} - ${track.artists.reduce((str, artist, index) => str + (index === 0 ? artist.name : ', ' + artist.name), '')}`;
-  }
-
   static get properties() {
     return {
-      _myTracks: Array
+      _myTracks: { type: Array }
     };
   }
 
-  _stateChanged(state) {
+  _getTrackTemplate(track) {
+    return html`${track.name} - ${track.artists.reduce((str, artist, index) => str + (index === 0 ? artist.name : ', ' + artist.name), '')}`;
+  }
+
+  _onLeaveBtnClicked() {
+    store.dispatch(leaveParty());
+  }
+
+  _onEndPartyBtnClicked() {
+    store.dispatch(endParty());
+  }
+
+  stateChanged(state) {
     this._myTracks = myTracksSelector(state);
   }
 }

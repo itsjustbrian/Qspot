@@ -2,7 +2,7 @@ import { createSelector } from 'reselect';
 import { RECEIVE_MY_TRACKS, MY_TRACKS_ORIGIN } from '../actions/my-tracks.js';
 import { RECEIVE_TRACK, FAIL_TRACK } from '../actions/track.js';
 import { partyMembersSelector } from './members.js';
-import { userSelector } from './auth.js';
+import { userIdSelector } from './auth.js';
 
 const myTracks = (state = { trackDataById: {} }, action) => {
   switch (action.type) {
@@ -52,7 +52,7 @@ export const myTracksQueuePositionsSelector = createSelector(
   myTracksItemsListSelector,
   myTracksItemsSelector,
   partyMembersSelector,
-  state => userSelector(state) && userSelector(state).id,
+  userIdSelector,
   (itemsList, items, members, currentUserId) => {
     if (!currentUserId || !members || !itemsList || !members[currentUserId]) return null;
     const currentUserMemberData = members[currentUserId];

@@ -10,17 +10,25 @@ import { signInToSpotify, signIn } from '../actions/auth.js';
 import { SharedStyles } from './shared-styles.js';
 
 class QspotLogin extends (PageViewElement) {
-  _render(props) {
+  render() {
     return html`
       ${SharedStyles}
       <section>
         <p>
           <h2>Welcome Back</h2>
-          <button on-click="${() => store.dispatch(signInToSpotify())}">Sign in with Spotify</button>
-          <button on-click="${() => store.dispatch(signIn())}">Sign in with Google</button>
+          <button @click=${this._spotifySignInBtnClicked}>Sign in with Spotify</button>
+          <button @click=${this._googleSignInBtnClicked}>Sign in with Google</button>
         </p>
       </section>
     `;
+  }
+
+  _spotifySignInBtnClicked() {
+    store.dispatch(signInToSpotify());
+  }
+
+  _googleSignInBtnClicked() {
+    store.dispatch(signIn());
   }
 }
 

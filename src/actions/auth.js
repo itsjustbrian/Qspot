@@ -1,6 +1,6 @@
-import { API_URL } from '../new/globals.js';
+import { API_URL } from '../globals/globals.js';
 import { parseDoc } from '../firebase/firebase-utils.js';
-import { formatUrl } from '../util/fetch-utils.js';
+import { formatUrl, fetchRetry } from '../util/fetch-utils.js';
 import { loadAuth, firebaseAuth, loadFirestore, firestore } from '../firebase/firebase.js';
 import { replaceLocationURL } from './app.js';
 import { spotifyLoginSelector, userSelector } from '../reducers/auth.js';
@@ -80,7 +80,7 @@ export const signIn = () => async (dispatch) => {
 };
 
 export const signInToSpotify = () => (dispatch) => {
-  window.location.href = `${API_URL}/spotifyAuthRedirect`;
+  window.location.href = window.location.href = window.location.hostname === 'localhost' ? 'http://localhost:5000/queuespot-917af/us-central1/redirect' : 'https://us-central1-queuespot-917af.cloudfunctions.net/redirect';
 };
 
 export const createSpotifyAccount = () => async (dispatch, getState) => {
@@ -95,11 +95,11 @@ export const createSpotifyAccount = () => async (dispatch, getState) => {
 
   try {
     if (error || !code) throw error || 'No Code Provided';
-    const response = await fetch(formatUrl(`${API_URL}/createSpotifyAccount`, {
+    const response = await fetchRetry(formatUrl(`${API_URL}/createSpotifyAccount`, {
       code,
       state: verificationState
     }), { credentials: 'include' });
-    const { token, providers } = await response.json();
+    const { token } = await response.json();
     await loadAuth();
     await firebaseAuth.signInWithCustomToken(token);
   } catch (error) {

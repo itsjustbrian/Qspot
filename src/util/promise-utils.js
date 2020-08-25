@@ -40,7 +40,7 @@ export const takeLatest = (fn) => {
       const taskCanceller = new Promise((resolve) => cancelTask = resolve);
       try {
         await Promise.race([currentTask, taskCanceller]);
-      } catch(error) { /* This ain't our task */ }
+      } catch(error) { /* Don't handle errors when waiting on an existing task */ }
     }
     if (nextTask === task) {
       nextTask = null;

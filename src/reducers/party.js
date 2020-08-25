@@ -1,5 +1,5 @@
 import { createSelector } from 'reselect';
-import { userSelector } from './auth.js';
+import { userIdSelector } from './auth.js';
 import { RECEIVE_PARTY } from '../actions/party.js';
 import { RECEIVE_USER_DATA } from '../actions/auth.js';
 
@@ -32,7 +32,7 @@ export const isHostSelector = state => (state.party.item && state.party.item.hos
 export const partyDataSelector = state => state.party.item;
 export const currentUserIsHostSelector = createSelector(
   partyDataSelector,
-  userSelector,
-  (partyData, user) => partyData && user && partyData.host === user.id
+  userIdSelector,
+  (partyData, userId) => partyData && userId && partyData.host === userId
 );
 

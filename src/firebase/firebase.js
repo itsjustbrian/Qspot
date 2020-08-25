@@ -12,7 +12,7 @@ export let FieldValue;
 let loadAppPromise;
 const loadApp = () => {
   return loadAppPromise || (loadAppPromise = (async () => {
-    await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`], true);
+    await loadScripts(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`);
 
     firebase = window['firebase'];
     firebase.initializeApp(config);
@@ -23,7 +23,7 @@ let loadAuthPromise;
 export const loadAuth = () => {
   return loadAuthPromise || (loadAuthPromise = (async () => {
     await loadApp();
-    await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-auth.js`], true);
+    await loadScripts(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-auth.js`);
 
     firebaseAuth = firebase.auth();
   })());
@@ -33,7 +33,7 @@ let loadFirestorePromise;
 export const loadFirestore = () => {
   return loadFirestorePromise || (loadFirestorePromise = (async () => {
     await loadApp();
-    await loadScripts([`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`], true);
+    await loadScripts(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`);
 
     firestore = firebase.firestore();
     Timestamp = firebase.firestore.Timestamp;

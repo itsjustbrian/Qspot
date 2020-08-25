@@ -17,17 +17,18 @@ store.addReducers({
 import { SharedStyles } from './shared-styles.js';
 
 class QspotJoin extends connect(store)(PageViewElement) {
-  _render({ _joinError }) {
+  render() {
+    const { _joinError } = this;
     return html`
-       ${SharedStyles}
+      ${SharedStyles}
       <section>
         <p>
           <h2>Join</h2>
           <input id="party-code-input" type="text" placeholder="Enter party code">
-          <button on-click="${(e) => this._handleJoinParty(e)}">Join</button>
+          <button @click=${this._joinPartyBtnClicked}>Join</button>
           ${_joinError ? html`<span>${_joinError}</span>`: null}
           <br>Or...<br>
-          <button on-click="${(e) => store.dispatch(createParty())}">Create Party</button>
+          <button @click=${this._createPartyBtnClicked}>Create Party</button>
         </p>
       </section>
     `;
@@ -39,15 +40,19 @@ class QspotJoin extends connect(store)(PageViewElement) {
     };
   }
 
-  _firstRendered() {
+  firstUpdated() {
     this._partyCodeInput = this.shadowRoot.getElementById('party-code-input');
   }
 
-  _handleJoinParty(event) {
+  _joinPartyBtnClicked() {
     store.dispatch(joinPartyWithCode(this._partyCodeInput.value));
   }
 
-  _stateChanged(state) {
+  _createPartyBtnClicked() {
+    store.dispatch(createParty());
+  }
+
+  stateChanged(state) {
     this._joinError = state.join.failure && state.join.error;
   }
 }

@@ -1,24 +1,10 @@
 {
   "/": {
-    "src/components/my-app.js": {
+    "src/components/qspot-app.js": {
       "type": "script",
       "weight": 1
     },
-    "src/components/my-view1.js": {
-      "type": "script",
-      "weight": 1
-    },
-    "node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js": {
-      "type": "script",
-      "weight": 1
-    }
-  },
-  "/view1": {
-    "src/components/my-app.js": {
-      "type": "script",
-      "weight": 1
-    },
-    "src/components/my-view1.js": {
+    "src/components/qspot-join.js": {
       "type": "script",
       "weight": 1
     },
@@ -27,12 +13,12 @@
       "weight": 1
     }
   },
-  "/view2": {
-    "src/components/my-app.js": {
+  "/join": {
+    "src/components/qspot-app.js": {
       "type": "script",
       "weight": 1
     },
-    "src/components/my-view2.js": {
+    "src/components/qspot-join.js": {
       "type": "script",
       "weight": 1
     },
@@ -41,12 +27,54 @@
       "weight": 1
     }
   },
-  "/view3": {
-    "src/components/my-app.js": {
+  "/login": {
+    "src/components/qspot-app.js": {
       "type": "script",
       "weight": 1
     },
-    "src/components/my-view3.js": {
+    "src/components/qspot-login.js": {
+      "type": "script",
+      "weight": 1
+    },
+    "node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js": {
+      "type": "script",
+      "weight": 1
+    }
+  },
+  "/my-tracks": {
+    "src/components/qspot-app.js": {
+      "type": "script",
+      "weight": 1
+    },
+    "src/components/qspot-my-tracks.js": {
+      "type": "script",
+      "weight": 1
+    },
+    "node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js": {
+      "type": "script",
+      "weight": 1
+    }
+  },
+  "/queue": {
+    "src/components/qspot-app.js": {
+      "type": "script",
+      "weight": 1
+    },
+    "src/components/qspot-queue.js": {
+      "type": "script",
+      "weight": 1
+    },
+    "node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js": {
+      "type": "script",
+      "weight": 1
+    }
+  },
+  "/search": {
+    "src/components/qspot-app.js": {
+      "type": "script",
+      "weight": 1
+    },
+    "src/components/qspot-search.js": {
       "type": "script",
       "weight": 1
     },

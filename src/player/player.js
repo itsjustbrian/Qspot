@@ -1,10 +1,9 @@
 import { firestore, Timestamp } from '../firebase/firebase.js';
 import { difference } from '../firebase/firebase-utils.js';
 import { loadScripts } from '../util/script-loader.js';
-import { formatBody } from '../util/fetch-utils.js';
+import { formatBody, fetchRetry } from '../util/fetch-utils.js';
 import { takeLatest } from '../util/promise-utils.js';
 import { subscribe } from './player-middleware.js';
-import { NoSleep } from '../no-sleep/no-sleep.js';
 import { currentPartySelector, isHostSelector } from '../reducers/party.js';
 import { playbackStateSelector, playerLoadedSelector, playerActiveSelector } from '../reducers/player.js';
 import { getAccessToken } from '../actions/tokens.js';
@@ -22,11 +21,12 @@ import {
 
 export const PLAYER_ORIGIN = 'PLAYER_ORIGIN';
 const SEEK_TOLERANCE_MS = 1000;
+const PLAY_TRACK_TIMEOUT_MS = 4000;
 
 export const installPlayer = async (store) => {
   if (playerLoadedSelector(store.getState())) return;
   const sdkLoaded = new Promise((resolve) => window.onSpotifyWebPlaybackSDKReady = resolve);
-  loadScripts(['https://sdk.scdn.co/spotify-player.js'], true);
+  loadScripts('https://sdk.scdn.co/spotify-player.js');
   await sdkLoaded;
   const player = new Spotify.Player({
     name: 'Qspot',
@@ -59,6 +59,21 @@ export const installPlayer = async (store) => {
     playerReadyPromise = resolvePlayerReady = null;
   });
 
+  // Convert this ugly thing to a Class maybe?
+  let resolveRequestedTrack, getRequestedTrackId;
+  const requestedTrackPlayed = (trackId) => {
+    getRequestedTrackId = () => trackId;
+    return new Promise((resolve) => {
+      resolveRequestedTrack = () => {
+        resolve();
+        resolveRequestedTrack = getRequestedTrackId = null;
+      };
+      setTimeout(() => {
+        !!resolveRequestedTrack && resolveRequestedTrack();
+      }, PLAY_TRACK_TIMEOUT_MS);
+    });
+  };
+
   let oldPlaybackState;
   player.addListener('player_state_changed', (playerState) => {
     if (!playerState) {
@@ -69,28 +84,35 @@ export const installPlayer = async (store) => {
       store.dispatch({ type: PLAYER_CONNECTED, origin: PLAYER_ORIGIN });
     }
 
-    const state = store.getState();
-    const currentUserIsHost = isHostSelector(state);
-    if (!currentUserIsHost) return;
-
     const newPlaybackState = reduceSpotifyPlayerState(playerState);
-
     console.log('Old playback state', oldPlaybackState);
     console.log('New playback state', newPlaybackState);
-    
-    if (oldPlaybackState &&
-      (finishedCurrentTrack(newPlaybackState, oldPlaybackState) ||
-        currentTrackSkipped(newPlaybackState, oldPlaybackState))) {
-      store.dispatch(playNextInQueue());
-    } else if (relevantStateChanged(newPlaybackState, oldPlaybackState)) {
-      const currentParty = currentPartySelector(state);
-      firestore.collection('parties').doc(currentParty).update({
-        playbackState: {
-          ...newPlaybackState,
-          lastUpdated: Timestamp.now()
-        }
-      });
-      store.dispatch(playbackStateChanged(newPlaybackState, PLAYER_ORIGIN));
+
+    // Verify that a track played by Spotify's play endpoint actually played
+    const requestedTrackId = !!getRequestedTrackId && getRequestedTrackId();
+    const currentTrackId = newPlaybackState.currentTrack && newPlaybackState.currentTrack.id;
+    if (requestedTrackId && requestedTrackId === currentTrackId && oldPlaybackState &&
+      !currentTrackChanged(newPlaybackState, oldPlaybackState) &&
+      trackDurationChanged(newPlaybackState, oldPlaybackState)) {
+      resolveRequestedTrack();
+    }
+
+    const currentUserIsHost = isHostSelector(store.getState());    
+    if (currentUserIsHost) {
+      if (oldPlaybackState &&
+        (finishedCurrentTrack(newPlaybackState, oldPlaybackState) ||
+          currentTrackSkipped(newPlaybackState, oldPlaybackState))) {
+        store.dispatch(playNextInQueue());
+      } else if (relevantStateChanged(newPlaybackState, oldPlaybackState)) {
+        const currentParty = currentPartySelector(state);
+        firestore.collection('parties').doc(currentParty).update({
+          playbackState: {
+            ...newPlaybackState,
+            lastUpdated: Timestamp.now()
+          }
+        });
+        store.dispatch(playbackStateChanged(newPlaybackState, PLAYER_ORIGIN));
+      }
     }
 
     oldPlaybackState = newPlaybackState;
@@ -103,8 +125,6 @@ export const installPlayer = async (store) => {
 
   await player.connect();
   const deviceId = await playerReady();
-  const noSleep = new NoSleep();
-  noSleep.enable();
 
   const state = store.getState();
   const currentUserIsHost = isHostSelector(state);
@@ -120,10 +140,14 @@ export const installPlayer = async (store) => {
   // Transfer playback to this player
   const initialPlaybackState = playbackStateSelector(state);
   if (initialPlaybackState && !initialPlaybackState.paused) {
-    await store.dispatch(playTrack(initialPlaybackState.currentTrack.id, getAdjustedPosition(initialPlaybackState)));
+    const initialTrackId = initialPlaybackState.currentTrack.id;
+    const trackPlayedPromise = requestedTrackPlayed(initialTrackId);
+    store.dispatch(playTrack(initialTrackId)).catch(resolveRequestedTrack);
+    await trackPlayedPromise;
+    player.seek(getAdjustedPosition(initialPlaybackState));
   } else if (currentUserIsHost) {
     const token = await store.dispatch(getAccessToken());
-    await fetch('https://api.spotify.com/v1/me/player', {
+    await fetchRetry('https://api.spotify.com/v1/me/player', {
       body: formatBody({ device_ids: [deviceId] }),
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` }
@@ -136,7 +160,9 @@ export const installPlayer = async (store) => {
     const playerActive = playerActiveSelector(currentState);
 
     if (currentTrack && !isPaused && (!playerActive || (previousTrack && previousTrack.id) !== currentTrack.id)) {
-      return await store.dispatch(playTrack(currentTrack.id, getAdjustedPosition(playbackStateSelector(currentState))));
+      const trackPlayedPromise = requestedTrackPlayed(currentTrack.id);
+      store.dispatch(playTrack(currentTrack.id)).catch(resolveRequestedTrack);
+      await trackPlayedPromise;
     }
 
     if (!playerActive) return;
@@ -147,8 +173,6 @@ export const installPlayer = async (store) => {
     if (previousPosition !== nextPosition) {
       const playerState = await player.getCurrentState();
       const adjustedPosition = getAdjustedPosition(playbackStateSelector(currentState));
-      console.log('Player position: ', playerState.position);
-      console.log('nextPosition: ', adjustedPosition);
       if (Math.abs(playerState.position - adjustedPosition) > SEEK_TOLERANCE_MS) player.seek(adjustedPosition);
     }
   });

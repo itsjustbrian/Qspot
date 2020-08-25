@@ -1,168 +1,175 @@
-import { doBatchedAction, parseDoc } from '../firebase/firebase-utils';
-import { firestore } from '../firebase/firebase';
-import { userSelector, spotifyAccountSelector } from '../reducers/auth';
+import { firestore } from '../firebase/firebase.js';
+import { doBatchedAction, parseDoc } from '../firebase/firebase-utils.js';
+import { formatUrl, formatBody } from '../util/fetch-utils.js';
+import { sequentialize } from '../util/promise-utils.js';
+import { store } from '../store.js';
+import { currentPartySelector, isHostSelector } from '../reducers/party.js';
+import { userIdSelector, spotifyAccountIsPremiumSelector } from '../reducers/auth.js';
+import { qspotDeviceIsConnectedSelector, deviceIdSelector, playerActiveSelector } from '../reducers/player.js';
 
-export const SUCCEED_JOIN_PARTY = 'SUCCEED_JOIN_PARTY';
-export const FAIL_JOIN_PARTY = 'FAIL_JOIN_PARTY';
-export const SUCCEED_CREATE_PARTY = 'SUCCEED_CREATE_PARTY';
-export const FAIL_CREATE_PARTY = 'FAIL_CREATE_PARTY'; 
+import { fetchWithToken, ACCESS_TOKEN } from './tokens.js';
 
-export const joinPartyWithCode = (code, batch) => async (dispatch) => {
-  const party = await getPartyWithCode(code);
-  if (!party) return dispatch(failJoinParty('Invalid party code'));
-  dispatch(joinParty(party.id, batch));
-};
+export const PLAYER_CREATED = 'PLAYER_CREATED';
+export const PLAYER_STATE_CHANGED = 'PLAYER_STATE_CHANGED';
+export const PLAYER_READY = 'PLAYER_READY';
+export const PLAYER_NOT_READY = 'PLAYER_NOT_READY';
+export const PLAYER_CONNECTED = 'PLAYER_CONNECTED';
+export const PLAYER_DISCONNECTED = 'PLAYER_DISCONNECTED';
+export const PLAYER_ERROR = 'PLAYER_ERROR';
+export const PAUSE_PLAYER = 'PAUSE_PLAYER';
+export const RESUME_PLAYER = 'RESUME_PLAYER';
+export const SEEK_PLAYER = 'SEEK_PLAYER';
+export const SET_PLAYER_VOLUME = 'SET_VOLUME';
+export const RECEIVE_NEXT_TRACK = 'RECEIVE_NEXT_TRACK';
+export const GET_CONNECTED_DEVICES = 'GET_CONNECTED_DEVICES';
 
-export const joinParty = (id, batch) => async (dispatch, getState) => {
-  try {
-    await doBatchedAction(batch, async (batch) => {
-      const state = getState();
-      const currentUser = userSelector(state);
+const LISTENER_ORIGIN = 'LISTENER_ORIGIN';
 
-      batch.update(firestore.collection('users').doc(currentUser.id), {
-        currentParty: id
-      });
-
-      const memberRef = firestore.collection('parties').doc(id).collection('members').doc(currentUser.id);
-      const isMember = !!await getPartyMemberData(id, state);
-
-      // If we've already seen this member, we don't want to reset the number of tracks they've added.
-      isMember ? batch.update(memberRef, { active: true }) :
-        batch.set(memberRef, {
-          numTracksAdded: 0,
-          numTracksPlayed: 0,
-          active: true
-        });
-    });
-  } catch (error) {
-    return dispatch(failJoinParty());
-  }
-
-  dispatch(succeedJoinParty());
-};
-
-const getPartyWithCode = async (code) => {
-  const { docs } = await firestore.collection('parties').where('code', '==', code).get();
-  return parseDoc(docs[0]);
-};
-
-const getPartyMemberData = async (partyId, state) => {
-  return parseDoc(await firestore.collection('parties').doc(partyId).collection('members').doc(userSelector(state).id).get());
-};
-
-const succeedJoinParty = () => {
-  return {
-    type: SUCCEED_JOIN_PARTY
-  };
-};
-
-const failJoinParty = (error) => {
-  return {
-    type: FAIL_JOIN_PARTY,
-    error
-  };
-};
-
-export const createParty = () => async (dispatch, getState) => {
-  const state = getState();
-  const currentUser = userSelector(state);
-  const country = spotifyAccountSelector(state).country;
-  const newPartyRef = firestore.collection('parties').doc();
-  
-  try {
-    const code = await generatePartyCode(newPartyRef.id);
-    await doBatchedAction(null, async (batch) => {
-      batch.set(newPartyRef, {
-        host: currentUser.id,
-        country,
-        code
-      });
-
-      // The creator/host must join the party
-      await dispatch(joinParty(newPartyRef.id, batch));
-    });
-  } catch (error) {
-    if (error.message !== 'Failed party code generation') {
-      // Roll back party code generation
-      deletePartyCode(newPartyRef.id);
+let setupPromise;
+export const setupPlayer = () => (dispatch, getState) => {
+  return setupPromise || (setupPromise = new Promise(async (resolve) => {
+    const premium = spotifyAccountIsPremiumSelector(getState());
+    if (premium) await dispatch(getConnectedDevices());
+    const state = getState();
+    const deviceConnected = qspotDeviceIsConnectedSelector(state);
+    const currentUserIsHost = isHostSelector(state);
+    if (!currentUserIsHost || deviceConnected) dispatch(attachPlaybackStateListener());
+    else {
+      dispatch(attachNextTrackListener());
+      loadPlayer();
     }
-    console.log(error);
-    return dispatch(failCreateParty());
-  }
-
-  dispatch(succeedCreateParty());
+    resolve();
+  }));
 };
 
-export async function generatePartyCode(partyId) {
-  try {
-    let newCode;
-    await firestore.runTransaction(async (transaction) => {
-      newCode = randomLetters(4);
-      const partyCodeRef = firestore.collection('party-codes').doc(newCode);
-      const data = parseDoc(await transaction.get(partyCodeRef));
-      if (data) {
-        const parties = data.parties;
-        let extensionNum = data.extensionNum;
-        newCode += extensionNum > 0 ? extensionNum : '';
-        parties[partyId] = extensionNum;
-        extensionNum++;
-        await transaction.set(partyCodeRef, {
-          parties,
-          extensionNum
-        });
-      } else {
-        await transaction.set(partyCodeRef, {
-          parties: { [partyId]: 0 },
-          extensionNum: 1
-        });
-      }
-    });
-    if (!newCode) throw null;
-    return newCode;
-  } catch (error) {
-    throw new Error('Failed party code generation');
-  }
-}
-
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const randomLetters = (numLetters) => {
-  let letters = '';
-  for (let i = 0; i < numLetters; i++) {
-    const j = Math.floor(Math.random() * 26);
-    letters += ALPHABET[j];
-  }
-  return letters;
+const loadPlayer = async () => {
+  const playerModule = await import('../player/player.js');
+  playerModule.installPlayer(store);
 };
 
-export async function deletePartyCode(partyId) {
-
-  const partyCodesRef = firestore.collection('party-codes');
-  const { docs } = await partyCodesRef.where(`parties.${partyId}`, '>=', 0).get();
-  if (!docs.length) return; // This party ID is not in the party-codes ledger, so nothing to delete
-  try {
-    await firestore.runTransaction(async (transaction) => {
-      const codeData = parseDoc(await transaction.get(partyCodesRef.doc(docs[0].id)));
-      if (!codeData) throw 'Code deleted';
-
-      const parties = codeData.parties;
-      if (Object.keys(parties).length > 1) {
-        delete parties[partyId];
-        transaction.update(partyCodesRef.doc(codeData.id), { parties });
-      } else transaction.delete(partyCodesRef.doc(codeData.id));
+let nextTrackListener;
+export const attachNextTrackListener = () => async (dispatch, getState) => {
+  return new Promise((resolve) => {
+    const currentParty = currentPartySelector(getState());
+    nextTrackListener = firestore.collection(`parties/${currentParty}/tracks`).orderBy('trackNumber').orderBy('memberOrderStamp').limit(1).onSnapshot((snapshot) => {
+      const nextTrack = parseDoc(snapshot.docs[0]);
+      dispatch(receiveNextTrack(nextTrack));
+      resolve();
     });
-  } catch (error) {
-    if (error !== 'Code deleted') throw error;
-  }
-}
+  });
+};
+export const detachNextTrackListener = () => nextTrackListener && (nextTrackListener(), nextTrackListener = null);
 
-const succeedCreateParty = () => {
+const receiveNextTrack = (item) => {
   return {
-    type: SUCCEED_CREATE_PARTY
+    type: RECEIVE_NEXT_TRACK,
+    item
   };
 };
 
-const failCreateParty = () => {
+let playbackListener, playbackPromise;
+export const attachPlaybackStateListener = () => (dispatch, getState) => {
+  const currentParty = currentPartySelector(getState());
+  return playbackPromise || (playbackPromise = new Promise((resolve) => {
+    playbackListener = firestore.collection('parties').doc(currentParty).onSnapshot((snapshot) => {
+      const party = parseDoc(snapshot);
+      const playbackState = party && party.playbackState;
+      dispatch(playbackStateChanged(playbackState, LISTENER_ORIGIN));
+      resolve();
+    });
+  }));
+};
+export const detachPlaybackListener = () => playbackListener && (playbackListener(), playbackPromise = playbackListener = null);
+
+const _playNextInQueue = sequentialize(async (dispatch, getState) => {
+  const state = getState();
+  const currentParty = currentPartySelector(state);
+  const nextTrack = state.player.nextTrack;
+  if (!nextTrack) return console.log('Nothing to play');
+
+  await dispatch(playTrack(nextTrack.id));
+
+  await doBatchedAction(null, async (batch) => {
+    batch.delete(firestore.collection('parties').doc(currentParty).collection('tracks').doc(nextTrack.id));
+
+    const member = parseDoc(await firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId).get());
+    if (member) {
+      const { numTracksPlayed } = member;
+      // Only one user (the host) should be executing this, so avoiding transactions is a-okay
+      batch.update(firestore.collection('parties').doc(currentParty).collection('members').doc(nextTrack.submitterId), {
+        numTracksPlayed: numTracksPlayed + 1
+      });
+    }
+  });
+});
+export const playNextInQueue = () => (dispatch, getState) => {
+  _playNextInQueue(dispatch, getState);
+};
+
+export const playTrack = (id, position) => (dispatch, getState) => {
+  const deviceId = deviceIdSelector(getState());
+  return dispatch(fetchWithToken(ACCESS_TOKEN, formatUrl('https://api.spotify.com/v1/me/player/play', {
+    device_id: deviceId
+  }), {
+      body: formatBody({
+        uris: [`spotify:track:${id}`],
+        position_ms: position
+      }),
+      method: 'PUT'
+    }));
+};
+
+export const pausePlayer = () => (dispatch, getState) => {
+  const playerActive = playerActiveSelector(getState());
+  if (playerActive) {
+    dispatch({ type: PAUSE_PLAYER });
+  } else {
+    return dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/pause', {
+      method: 'PUT'
+    }));
+  }
+};
+
+export const resumePlayer = () => (dispatch, getState) => {
+  const playerActive = playerActiveSelector(getState());
+  if (playerActive) {
+    dispatch({ type: RESUME_PLAYER });
+  } else {
+    return dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT'
+    }));
+  }
+};
+
+export const getConnectedDevices = () => async (dispatch) => {
+  let response = await dispatch(fetchWithToken(ACCESS_TOKEN, 'https://api.spotify.com/v1/me/player/devices'));
+  response = await response.json();
+  const devices = response && response.devices;
+  dispatch({ type: GET_CONNECTED_DEVICES, devices });
+};
+
+export const listenToParty = () => (_, getState) => {
+  const state = getState();
+  const currentParty = currentPartySelector(state);
+  const currentUserId = userIdSelector(state);
+  firestore.collection('parties').doc(currentParty).collection('members').doc(currentUserId).update({
+    listening: true
+  });
+  loadPlayer();
+};
+
+export const playbackStateChanged = (playbackState, origin) => {
   return {
-    type: FAIL_CREATE_PARTY
+    type: PLAYER_STATE_CHANGED,
+    origin,
+    playbackState
+  };
+};
+
+export const playerError = (type, message) => {
+  console.log('Player error', type, message);
+  return {
+    type: PLAYER_ERROR,
+    message
   };
 };

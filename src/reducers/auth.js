@@ -28,22 +28,13 @@ const auth = (state = { spotify: {} }, action) => {
         spotify: spotify(state.spotify, action),
       };
     }
-    case RECEIVE_USER_DATA:
-      return {
-        ...state,
-        user: {
-          ...state.user,
-          qspotActiveDeviceId: action.userData.activeDeviceId,
-          isListeningToParty: action.userData.isListeningToParty,
-        },
-        spotify: spotify(state.spotify, action)
-      };
     case UPDATE_LOCATION:
       return {
         ...state,
         authorizing: state.authorizing || action.page === 'authorize_spotify',
         spotify: spotify(state.spotify, action)
       };
+    case RECEIVE_USER_DATA:
     case CREATE_SPOTIFY_ACCOUNT:
     case FAIL_CREATE_SPOTIFY_ACCOUNT:
     case REQUEST_NEW_CLIENT_TOKEN:
@@ -217,8 +208,9 @@ const login = (state = {}, action) => {
 export default auth;
 
 export const userSelector = state => state.auth.user;
+export const userIdSelector = state => state.auth.user && state.auth.user.id;
 export const spotifyAccountSelector = state => state.auth.spotify;
+export const spotifyAccountIsPremiumSelector = state => state.auth.spotify && state.auth.spotify.premium;
 export const spotifyClientTokenSelector = state => state.auth.spotify.tokens && state.auth.spotify.tokens.client;
 export const spotifyAccessTokenSelector = state => state.auth.spotify.tokens && state.auth.spotify.tokens.access;
 export const spotifyLoginSelector = state => state.auth.spotify.login;
-export const isListeningToPartySelector = state => state.auth.user && state.auth.user.isListeningToParty;

@@ -1,4 +1,6 @@
 import { RECEIVE_PARTY_MEMBERS } from '../actions/members';
+import { createSelector } from 'reselect';
+import { userIdSelector } from './auth.js';
 
 const members = (state = {}, action) => {
   switch (action.type) {
@@ -17,4 +19,9 @@ const members = (state = {}, action) => {
 
 export default members;
 
-export const partyMembersSelector = state => state.members.items;
+export const partyMembersSelector = state => state.members && state.members.items;
+export const isListeningToPartySelector = createSelector(
+  partyMembersSelector,
+  userIdSelector,
+  (items, userId) => items[userId] && items[userId].listening
+);

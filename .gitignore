@@ -10,4 +10,5 @@ firebase-config.js
 tsconfig.json
 *.log
 .vscode
+.firebase
 .DS_Store
